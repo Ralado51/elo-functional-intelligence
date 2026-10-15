@@ -3,9 +3,11 @@ from typing import Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="Elo Functional Intelligence API", version="0.1.0")
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 
 class SessionInput(BaseModel):
     case_id: str = Field(min_length=1)
