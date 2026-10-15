@@ -3,3 +3,7 @@ services:
     build: ./backend
     ports:
       - "8000:8000"
+    volumes:
+      - elo_data:/app/data
+volumes:
+  elo_data:
