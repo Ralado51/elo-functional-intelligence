@@ -9,8 +9,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 
 from app.database import db, one, all_rows, execute, database_url
+from app.registry import router as registry_router
 
 app = FastAPI(title="Elo Functional Intelligence API", version="0.3.0")
+app.include_router(registry_router)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 
 class CaseInput(BaseModel):
