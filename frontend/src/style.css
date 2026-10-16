@@ -3,3 +3,28 @@
 .history-panel{margin-bottom:22px}.history-controls{display:flex;align-items:end;gap:14px;flex-wrap:wrap}.history-controls label{margin:0}.history-controls select{min-width:200px;padding:12px;border:1px solid #cbdcd9;border-radius:8px;background:#fbfdfc;color:#17363b}.history-controls button{margin:0}.history-list{display:flex;gap:10px;overflow-x:auto;padding:8px 0}.history-item{display:flex;flex-direction:column;align-items:start;gap:5px;min-width:185px;background:#edf6f4;color:#17363b;border:1px solid #d4e5e2;text-align:left;margin:0}.history-item.selected{border:2px solid #087f80;background:#d8eeea}.history-item span{font-size:12px}.history-item small{font-weight:400;color:#607c7f}
 
 .registry-review{margin-top:22px}.registry-review select{display:block;width:100%;padding:12px;border:1px solid #cbdcd9;border-radius:8px;background:#fbfdfc;color:#17363b}.review-summary{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}.review-summary span{padding:9px 12px;background:#edf6f4;border-radius:8px;font-size:12px;font-weight:700}.observation-card{border:1px solid #d4e5e2;border-radius:12px;padding:18px;margin-top:18px;overflow-wrap:anywhere}.observation-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.review-chip{font-size:11px;font-weight:800;padding:6px 10px;border-radius:99px;background:#fff0d8;color:#86560c}.review-chip.approved,.review-chip.corrected{background:#dff3e8;color:#176c45}.review-chip.rejected{background:#fde5e5;color:#983333}.evidence{padding:12px;background:#f3f7f6;border-left:3px solid #087f80;border-radius:5px}.evidence strong{font-size:12px}.evidence blockquote{margin:8px 0 0;font-size:13px;line-height:1.6}.review-form{margin-top:15px}.audit-log{margin-top:12px;padding:12px;background:#f8faf9;border-radius:8px}.audit-event{border-top:1px solid #dce8e5;padding:10px 0;font-size:12px}.audit-event p{margin:6px 0}
+
+/* Sprint 6: evidence-first review workspace */
+.registry-review{scroll-margin-top:24px}
+.workspace-title{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.workspace-title h2{margin:4px 0 12px;font-size:clamp(20px,2.6vw,28px);letter-spacing:-.5px}
+.workspace-kicker{margin:0;color:#087f80;font-size:11px;font-weight:800;letter-spacing:1.2px}
+.workspace-mode{border:1px solid #d4e5e2;border-radius:99px;padding:8px 12px;color:#547478;font-size:12px}
+.review-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.review-summary span{display:flex;flex-direction:column;gap:4px;padding:16px;font-size:12px;font-weight:500}
+.review-summary strong{font-size:26px;line-height:1.2;color:#17363b}
+.review-summary .pending-count{background:#fff2dd;color:#805619}
+.review-summary .pending-count strong{color:#805619}
+.observation-card{padding:22px;background:#fff;box-shadow:0 3px 14px #17363b08}
+.observation-heading strong{font-size:17px}
+.observation-comparison{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.observation-proposal,.observation-comparison .evidence{margin:0;min-width:0;padding:16px;border:1px solid #dce8e5;border-radius:10px}
+.observation-proposal{background:#fbfdfc}
+.observation-proposal p{font-size:14px;line-height:1.65;margin:9px 0 0}
+.field-heading,.observation-comparison .evidence strong{font-size:12px;font-weight:800;color:#4b7274}
+.observation-comparison .evidence{background:#eef7f5;border-left:3px solid #087f80}
+.observation-comparison .evidence blockquote{font-size:14px;line-height:1.65}
+.review-form{padding-top:14px;border-top:1px solid #e4eeeb}
+.registry-review button:focus-visible,.registry-review input:focus-visible,.registry-review select:focus-visible,.registry-review textarea:focus-visible{outline:3px solid #71b9b1;outline-offset:2px}
+@media(max-width:850px){.review-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.observation-comparison{grid-template-columns:1fr}}
+@media(max-width:480px){main{padding:0 14px}.panel{padding:18px}.review-summary span{padding:12px}.observation-card{padding:14px}.workspace-mode{font-size:11px}}

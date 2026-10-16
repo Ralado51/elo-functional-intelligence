@@ -48,6 +48,7 @@ function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [auditBusy, setAuditBusy] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
 
   async function loadEvents() {
     setAuditBusy(true);
@@ -72,14 +73,14 @@ function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
       });
       await onReviewed();
       await loadEvents();
+      setAuditOpen(true);
     } catch (e) { setError(String(e)); }
     finally { setBusy(false); }
   }
 
   return <article className="observation-card">
     <div className="observation-heading"><strong>{observation.functional_domain}</strong><span className={'review-chip ' + observation.review_status}>{observation.review_status}</span></div>
-    <p>{observation.observation_text}</p>
-    <div className="evidence"><strong>Evidência literal da sessão</strong><blockquote>{observation.source_excerpt}</blockquote></div>
+    <div className="observation-comparison"><div className="observation-proposal"><span className="field-heading">Observação registrada</span><p>{observation.observation_text}</p></div><div className="evidence"><strong>Evidência literal da sessão</strong><blockquote>{observation.source_excerpt}</blockquote></div></div>
     {observation.review_status !== 'pending' && <p className="muted">Resultado revisado: {observation.reviewed_text || 'Rejeitado — não utilizar como observação validada.'}</p>}
     {observation.review_status === 'pending' && <div className="review-form">
       <label htmlFor={'decision-' + observation.id}>Decisão profissional</label>
@@ -92,8 +93,8 @@ function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
       {decision === 'reject' && <><label htmlFor={'reason-' + observation.id}>Motivo obrigatório</label><textarea id={'reason-' + observation.id} rows={3} value={reason} onChange={e => setReason(e.target.value)} disabled={busy}/></>}
       <button onClick={() => void submitReview()} disabled={busy || !reviewerId.trim() || (decision === 'correct' && !correctedText.trim()) || (decision === 'reject' && !reason.trim())}>Confirmar decisão</button>
     </div>}
-    <button className="secondary" disabled={auditBusy} onClick={() => void loadEvents()}>{auditBusy ? 'Carregando...' : 'Ver histórico de auditoria'}</button>
-    {events && <div className="audit-log"><h4>Histórico de decisões</h4>{events.length ? events.map(event => <div key={event.id} className="audit-event"><strong>{event.decision}</strong> · {new Date(event.created_at).toLocaleString('pt-BR')}<p className="muted">Revisor sintético: {event.reviewer_id}</p>{event.reason && <p>Motivo: {event.reason}</p>}{event.reviewed_text && <p>Texto final: {event.reviewed_text}</p>}</div>) : <p className="muted">Nenhum evento registrado.</p>}</div>}
+    <button className="secondary" aria-expanded={auditOpen} disabled={auditBusy} onClick={() => { if (auditOpen) setAuditOpen(false); else { setAuditOpen(true); if (!events) void loadEvents(); } }}>{auditBusy ? 'Carregando...' : auditOpen ? 'Ocultar histórico de auditoria' : 'Ver histórico de auditoria'}</button>
+    {auditOpen && events && <div className="audit-log"><h4>Histórico de decisões</h4>{events.length ? events.map(event => <div key={event.id} className="audit-event"><strong>{event.decision}</strong> · {new Date(event.created_at).toLocaleString('pt-BR')}<p className="muted">Revisor sintético: {event.reviewer_id}</p>{event.reason && <p>Motivo: {event.reason}</p>}{event.reviewed_text && <p>Texto final: {event.reviewed_text}</p>}</div>) : <p className="muted">Nenhum evento registrado.</p>}</div>}
     {error && <p role="alert" className="error">{error}</p>}
   </article>;
 }
@@ -126,17 +127,19 @@ export default function ReviewWorkspace({ apiBase, sessionId }: Props) {
 
   const pending = observations.filter(o => o.review_status === 'pending').length;
   const accepted = observations.filter(o => o.review_status === 'approved' || o.review_status === 'corrected').length;
+  const rejected = observations.filter(o => o.review_status === 'rejected').length;
+  const sortedObservations = [...observations].sort((a, b) => Number(b.review_status === 'pending') - Number(a.review_status === 'pending'));
   return <section className="panel registry-review">
-    <h2>04 / Revisão de observações funcionais</h2>
+    <div className="workspace-title"><div><p className="workspace-kicker">ESPAÇO DE REVISÃO · ELO IA LABS</p><h2>Revisão de observações funcionais</h2></div><span className="workspace-mode">Dados sintéticos · revisão humana</span></div>
     <p className="muted">Revisão individual e auditável. O identificador do profissional é sintético e não representa autenticação. Não utilizar dados reais de pacientes.</p>
     {!sessionId ? <p className="muted">Selecione uma sessão no histórico para visualizar suas observações.</p> : <>
       <label htmlFor="reviewer-id">ID do profissional sintético cadastrado</label>
       <input id="reviewer-id" value={reviewerId} onChange={e => setReviewerId(e.target.value)} placeholder="UUID do profissional criado em /registry/professionals"/>
-      <div className="review-summary"><span>{observations.length} observações</span><span>{pending} pendentes</span><span>{accepted} aprovadas ou corrigidas</span></div>
+      <div className="review-summary" aria-label="Resumo da revisão"><span><strong>{observations.length}</strong> observações</span><span className="pending-count"><strong>{pending}</strong> pendentes</span><span><strong>{accepted}</strong> aprovadas ou corrigidas</span><span><strong>{rejected}</strong> rejeitadas</span></div>
       <button className="secondary" disabled={loading} onClick={() => void refresh().catch(e => setError(String(e)))}>Atualizar observações</button>
       {loading && <p className="muted">Carregando observações...</p>}
       {loaded && !observations.length && <p className="muted">Esta sessão ainda não possui observações cadastradas. O modo mock não gera observações automaticamente.</p>}
-      {observations.map(o => <ObservationCard key={o.id} observation={o} apiBase={apiBase} reviewerId={reviewerId} onReviewed={refresh}/>)}
+      {sortedObservations.map(o => <ObservationCard key={o.id} observation={o} apiBase={apiBase} reviewerId={reviewerId} onReviewed={refresh}/>)}
       {error && <p role="alert" className="error">{error}</p>}
     </>}
   </section>;
