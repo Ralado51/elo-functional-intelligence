@@ -77,3 +77,19 @@ class Observation(Base):
     observation_text: Mapped[str] = mapped_column(Text, nullable=False)
     review_status: Mapped[str] = mapped_column(String(24), nullable=False)
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
+    reviewed_text: Mapped[str | None] = mapped_column(Text)
+    reviewed_at: Mapped[str | None] = mapped_column(Text)
+    reviewed_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("professionals.id"))
+
+
+class ObservationReviewEvent(Base):
+    __tablename__ = "observation_review_events"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    observation_id: Mapped[str] = mapped_column(String(36), ForeignKey("observations.id"), nullable=False, index=True)
+    reviewer_id: Mapped[str] = mapped_column(String(36), ForeignKey("professionals.id"), nullable=False)
+    decision: Mapped[str] = mapped_column(String(20), nullable=False)
+    previous_status: Mapped[str] = mapped_column(String(24), nullable=False)
+    previous_text: Mapped[str] = mapped_column(Text, nullable=False)
+    reviewed_text: Mapped[str | None] = mapped_column(Text)
+    reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str] = mapped_column(Text, nullable=False)
