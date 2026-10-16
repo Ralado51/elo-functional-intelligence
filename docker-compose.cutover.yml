@@ -4,6 +4,10 @@ services:
   api:
     environment:
       ELO_DATABASE_URL: postgresql+psycopg://elo:${ELO_POSTGRES_PASSWORD:?Set ELO_POSTGRES_PASSWORD}@postgres:5432/elo
+      ELO_INFERENCE_MODE: ${ELO_INFERENCE_MODE:-mock}
+      ELO_SYNTHETIC_ONLY_ACK: ${ELO_SYNTHETIC_ONLY_ACK:-false}
+      RADEON_API_KEY: ${RADEON_API_KEY:-}
+      RADEON_MODEL: ${RADEON_MODEL:-DeepSeek-V4-Flash}
     depends_on:
       postgres:
         condition: service_healthy
