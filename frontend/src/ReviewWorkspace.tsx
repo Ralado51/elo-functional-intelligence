@@ -60,9 +60,9 @@ function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
 
   async function submitReview() {
     setError('');
-    if (!reviewerId.trim()) { setError('Selecione o identificador de um profissional sintético cadastrado.'); return; }
-    if (decision === 'correct' && !correctedText.trim()) { setError('A correção precisa conter texto.'); return; }
-    if (decision === 'reject' && !reason.trim()) { setError('Informe o motivo da rejeição.'); return; }
+    if (!reviewerId.trim()) { setError('Enter the ID of a registered synthetic professional.'); return; }
+    if (decision === 'correct' && !correctedText.trim()) { setError('Correction text is required.'); return; }
+    if (decision === 'reject' && !reason.trim()) { setError('A rejection reason is required.'); return; }
     setBusy(true);
     try {
       await request(apiBase, '/registry/observations/' + encodeURIComponent(observation.id) + '/review', {
@@ -80,21 +80,21 @@ function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
 
   return <article className="observation-card">
     <div className="observation-heading"><strong>{observation.functional_domain}</strong><span className={'review-chip ' + observation.review_status}>{observation.review_status}</span></div>
-    <div className="observation-comparison"><div className="observation-proposal"><span className="field-heading">Observação registrada</span><p>{observation.observation_text}</p></div><div className="evidence"><strong>Evidência literal da sessão</strong><blockquote>{observation.source_excerpt}</blockquote></div></div>
-    {observation.review_status !== 'pending' && <p className="muted">Resultado revisado: {observation.reviewed_text || 'Rejeitado — não utilizar como observação validada.'}</p>}
+    <div className="observation-comparison"><div className="observation-proposal"><span className="field-heading">Recorded observation</span><p>{observation.observation_text}</p></div><div className="evidence"><strong>Verbatim session evidence</strong><blockquote>{observation.source_excerpt}</blockquote></div></div>
+    {observation.review_status !== 'pending' && <p className="muted">Reviewed outcome: {observation.reviewed_text || 'Rejected — do not use as a validated observation.'}</p>}
     {observation.review_status === 'pending' && <div className="review-form">
-      <label htmlFor={'decision-' + observation.id}>Decisão profissional</label>
+      <label htmlFor={'decision-' + observation.id}>Professional decision</label>
       <select id={'decision-' + observation.id} value={decision} onChange={e => setDecision(e.target.value as typeof decision)} disabled={busy}>
-        <option value="approve">Aprovar sem alterações</option>
-        <option value="correct">Corrigir observação</option>
-        <option value="reject">Rejeitar observação</option>
+        <option value="approve">Approve without changes</option>
+        <option value="correct">Correct observation</option>
+        <option value="reject">Reject observation</option>
       </select>
-      {decision === 'correct' && <><label htmlFor={'correction-' + observation.id}>Texto corrigido</label><textarea id={'correction-' + observation.id} rows={4} value={correctedText} onChange={e => setCorrectedText(e.target.value)} disabled={busy}/></>}
-      {decision === 'reject' && <><label htmlFor={'reason-' + observation.id}>Motivo obrigatório</label><textarea id={'reason-' + observation.id} rows={3} value={reason} onChange={e => setReason(e.target.value)} disabled={busy}/></>}
-      <button onClick={() => void submitReview()} disabled={busy || !reviewerId.trim() || (decision === 'correct' && !correctedText.trim()) || (decision === 'reject' && !reason.trim())}>Confirmar decisão</button>
+      {decision === 'correct' && <><label htmlFor={'correction-' + observation.id}>Corrected text</label><textarea id={'correction-' + observation.id} rows={4} value={correctedText} onChange={e => setCorrectedText(e.target.value)} disabled={busy}/></>}
+      {decision === 'reject' && <><label htmlFor={'reason-' + observation.id}>Required rejection reason</label><textarea id={'reason-' + observation.id} rows={3} value={reason} onChange={e => setReason(e.target.value)} disabled={busy}/></>}
+      <button onClick={() => void submitReview()} disabled={busy || !reviewerId.trim() || (decision === 'correct' && !correctedText.trim()) || (decision === 'reject' && !reason.trim())}>Confirm decision</button>
     </div>}
-    <button className="secondary" aria-expanded={auditOpen} disabled={auditBusy} onClick={() => { if (auditOpen) setAuditOpen(false); else { setAuditOpen(true); if (!events) void loadEvents(); } }}>{auditBusy ? 'Carregando...' : auditOpen ? 'Ocultar histórico de auditoria' : 'Ver histórico de auditoria'}</button>
-    {auditOpen && events && <div className="audit-log"><h4>Histórico de decisões</h4>{events.length ? events.map(event => <div key={event.id} className="audit-event"><strong>{event.decision}</strong> · {new Date(event.created_at).toLocaleString('pt-BR')}<p className="muted">Revisor sintético: {event.reviewer_id}</p>{event.reason && <p>Motivo: {event.reason}</p>}{event.reviewed_text && <p>Texto final: {event.reviewed_text}</p>}</div>) : <p className="muted">Nenhum evento registrado.</p>}</div>}
+    <button className="secondary" aria-expanded={auditOpen} disabled={auditBusy} onClick={() => { if (auditOpen) setAuditOpen(false); else { setAuditOpen(true); if (!events) void loadEvents(); } }}>{auditBusy ? 'Loading...' : auditOpen ? 'Hide audit history' : 'View audit history'}</button>
+    {auditOpen && events && <div className="audit-log"><h4>Decision history</h4>{events.length ? events.map(event => <div key={event.id} className="audit-event"><strong>{event.decision}</strong> · {new Date(event.created_at).toLocaleString('en-US')}<p className="muted">Synthetic reviewer: {event.reviewer_id}</p>{event.reason && <p>Reason: {event.reason}</p>}{event.reviewed_text && <p>Final text: {event.reviewed_text}</p>}</div>) : <p className="muted">No events recorded.</p>}</div>}
     {error && <p role="alert" className="error">{error}</p>}
   </article>;
 }
@@ -130,15 +130,15 @@ export default function ReviewWorkspace({ apiBase, sessionId }: Props) {
   const rejected = observations.filter(o => o.review_status === 'rejected').length;
   const sortedObservations = [...observations].sort((a, b) => Number(b.review_status === 'pending') - Number(a.review_status === 'pending'));
   return <section className="panel registry-review">
-    <div className="workspace-title"><div><p className="workspace-kicker">ESPAÇO DE REVISÃO · ELO IA LABS</p><h2>Revisão de observações funcionais</h2></div><span className="workspace-mode">Dados sintéticos · revisão humana</span></div>
-    <p className="muted">Revisão individual e auditável. O identificador do profissional é sintético e não representa autenticação. Não utilizar dados reais de pacientes.</p>
-    {!sessionId ? <p className="muted">Selecione uma sessão no histórico para visualizar suas observações.</p> : <>
-      <label htmlFor="reviewer-id">ID do profissional sintético cadastrado</label>
-      <input id="reviewer-id" value={reviewerId} onChange={e => setReviewerId(e.target.value)} placeholder="UUID do profissional criado em /registry/professionals"/>
-      <div className="review-summary" aria-label="Resumo da revisão"><span><strong>{observations.length}</strong> observações</span><span className="pending-count"><strong>{pending}</strong> pendentes</span><span><strong>{accepted}</strong> aprovadas ou corrigidas</span><span><strong>{rejected}</strong> rejeitadas</span></div>
-      <button className="secondary" disabled={loading} onClick={() => void refresh().catch(e => setError(String(e)))}>Atualizar observações</button>
-      {loading && <p className="muted">Carregando observações...</p>}
-      {loaded && !observations.length && <p className="muted">Esta sessão ainda não possui observações cadastradas. O modo mock não gera observações automaticamente.</p>}
+    <div className="workspace-title"><div><p className="workspace-kicker">REVIEW WORKSPACE · ELO IA LABS</p><h2>Functional observation review</h2></div><span className="workspace-mode">Synthetic data · human review</span></div>
+    <p className="muted">Individual, auditable review. The synthetic professional ID is not authentication. Never enter real patient data.</p>
+    {!sessionId ? <p className="muted">Select a session from case history to review its observations.</p> : <>
+      <label htmlFor="reviewer-id">Registered synthetic professional ID</label>
+      <input id="reviewer-id" value={reviewerId} onChange={e => setReviewerId(e.target.value)} placeholder="Professional UUID from /registry/professionals"/>
+      <div className="review-summary" aria-label="Resumo da revisão"><span><strong>{observations.length}</strong> observations</span><span className="pending-count"><strong>{pending}</strong> pending</span><span><strong>{accepted}</strong> approved or corrected</span><span><strong>{rejected}</strong> rejected</span></div>
+      <button className="secondary" disabled={loading} onClick={() => void refresh().catch(e => setError(String(e)))}>Atualizar observations</button>
+      {loading && <p className="muted">Carregando observations...</p>}
+      {loaded && !observations.length && <p className="muted">Esta sessão ainda não possui observations cadastradas. O modo mock não gera observations automaticamente.</p>}
       {sortedObservations.map(o => <ObservationCard key={o.id} observation={o} apiBase={apiBase} reviewerId={reviewerId} onReviewed={refresh}/>)}
       {error && <p role="alert" className="error">{error}</p>}
     </>}
