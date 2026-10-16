@@ -28,3 +28,17 @@
 .registry-review button:focus-visible,.registry-review input:focus-visible,.registry-review select:focus-visible,.registry-review textarea:focus-visible{outline:3px solid #71b9b1;outline-offset:2px}
 @media(max-width:850px){.review-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.observation-comparison{grid-template-columns:1fr}}
 @media(max-width:480px){main{padding:0 14px}.panel{padding:18px}.review-summary span{padding:12px}.observation-card{padding:14px}.workspace-mode{font-size:11px}}
+
+/* Sprint 6: focused application navigation */
+.app-nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:18px 0;border-bottom:1px solid #dce8e5}
+.app-nav button{margin:0;background:transparent;color:#496c70;border:1px solid transparent;padding:11px 16px}
+.app-nav button.active{background:#e4f2f0;border-color:#b6d8d2;color:#087f80}
+.app-nav button:focus-visible{outline:3px solid #71b9b1;outline-offset:2px}
+.intro{padding:30px 0 22px}
+.intro h1{font-size:clamp(29px,3.6vw,44px);letter-spacing:-1.4px}
+.review-context{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;background:#fff;border:1px solid #dce8e5;border-radius:16px;padding:20px 26px}
+.review-context h2{margin:8px 0;font-size:21px}
+.review-context p{margin:0}
+.review-context button{margin:0}
+.review-context+.registry-review{margin-top:16px}
+@media(max-width:480px){.app-nav button{flex:1;padding:10px 7px;font-size:12px}.review-context{padding:18px}}
