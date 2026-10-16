@@ -8,6 +8,7 @@ export type RegistryObservation = {
   observation_text: string;
   review_status: 'pending' | 'approved' | 'corrected' | 'rejected';
   reviewed_text?: string | null;
+  reviewed_domain?: string | null;
   reviewed_by?: string | null;
   reviewed_at?: string | null;
 };
@@ -17,6 +18,8 @@ type ReviewEvent = {
   decision: string;
   previous_status: string;
   previous_text: string;
+  previous_domain?: string | null;
+  reviewed_domain?: string | null;
   reviewed_text: string | null;
   reason: string | null;
   reviewer_id: string;
@@ -43,6 +46,7 @@ function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
 }) {
   const [decision, setDecision] = useState<'approve' | 'correct' | 'reject'>('approve');
   const [correctedText, setCorrectedText] = useState(observation.observation_text);
+  const [correctedDomain, setCorrectedDomain] = useState(observation.functional_domain);
   const [reason, setReason] = useState('');
   const [events, setEvents] = useState<ReviewEvent[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -61,14 +65,15 @@ function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
   async function submitReview() {
     setError('');
     if (!reviewerId.trim()) { setError('Enter a registered synthetic professional ID.'); return; }
-    if (decision === 'correct' && (correctedText.trim().length < 12 || correctedText.trim().split(/\s+/).length < 3)) { setError('Enter meaningful corrected text.'); return; }
+    if (decision === 'correct' && (correctedDomain.trim().length < 2 || correctedText.trim().length < 12 || correctedText.trim().split(/\s+/).length < 3)) { setError('Enter meaningful corrected text.'); return; }
+    if (decision === 'correct' && correctedDomain.trim().length < 2) { setError('Enter a functional domain.'); return; }
     if (decision === 'reject' && !reason.trim()) { setError('Enter a rejection reason.'); return; }
     setBusy(true);
     try {
       await request(apiBase, '/registry/observations/' + encodeURIComponent(observation.id) + '/review', {
         reviewer_id: reviewerId.trim(),
         decision,
-        ...(decision === 'correct' ? { reviewed_text: correctedText.trim() } : {}),
+        ...(decision === 'correct' ? { reviewed_text: correctedText.trim(), reviewed_domain: correctedDomain.trim() } : {}),
         ...(decision === 'reject' ? { reason: reason.trim() } : {})
       });
       await onReviewed();
@@ -81,6 +86,7 @@ function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
   return <article className="observation-card">
     <div className="observation-heading"><strong>{observation.functional_domain}</strong><span className={'review-chip ' + observation.review_status}>{observation.review_status}</span></div>
     <div className="observation-comparison"><div className="observation-proposal"><span className="field-heading">Original observation</span><p>{observation.observation_text}</p></div><div className="evidence"><strong>Verbatim session evidence</strong><blockquote>{observation.source_excerpt}</blockquote></div></div>
+    {observation.review_status !== 'pending' && observation.reviewed_domain && observation.reviewed_domain !== observation.functional_domain && <p className="muted">Reviewed domain: {observation.reviewed_domain}</p>}
     {observation.review_status !== 'pending' && <p className="muted">Reviewed result: {observation.reviewed_text || 'Rejected — do not use as a validated observation.'}</p>}
     {observation.review_status === 'pending' && <div className="review-form">
       <label htmlFor={'decision-' + observation.id}>Professional decision</label>
@@ -89,12 +95,12 @@ function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
         <option value="correct">Correct observation</option>
         <option value="reject">Reject observation</option>
       </select>
-      {decision === 'correct' && <><label htmlFor={'correction-' + observation.id}>Corrected text</label><textarea id={'correction-' + observation.id} rows={4} value={correctedText} onChange={e => setCorrectedText(e.target.value)} disabled={busy}/></>}
+      {decision === 'correct' && <><label htmlFor={'domain-' + observation.id}>Corrected functional domain</label><input id={'domain-' + observation.id} maxLength={80} value={correctedDomain} onChange={e => setCorrectedDomain(e.target.value)} disabled={busy}/><label htmlFor={'correction-' + observation.id}>Corrected text</label><textarea id={'correction-' + observation.id} rows={4} value={correctedText} onChange={e => setCorrectedText(e.target.value)} disabled={busy}/></>}
       {decision === 'reject' && <><label htmlFor={'reason-' + observation.id}>Required reason</label><textarea id={'reason-' + observation.id} rows={3} value={reason} onChange={e => setReason(e.target.value)} disabled={busy}/></>}
       <button onClick={() => void submitReview()} disabled={busy || !reviewerId.trim() || (decision === 'correct' && (correctedText.trim().length < 12 || correctedText.trim().split(/\s+/).length < 3)) || (decision === 'reject' && !reason.trim())}>Confirm decision</button>
     </div>}
     <button className="secondary" aria-expanded={auditOpen} disabled={auditBusy} onClick={() => { if (auditOpen) setAuditOpen(false); else { setAuditOpen(true); if (!events) void loadEvents(); } }}>{auditBusy ? 'Loading...' : auditOpen ? 'Hide audit history' : 'View audit history'}</button>
-    {auditOpen && events && <div className="audit-log"><h4>Decision history</h4>{events.length ? events.map(event => <div key={event.id} className="audit-event"><strong>{event.decision}</strong> · {new Date(event.created_at).toLocaleString('en-US')}<p className="muted">Synthetic reviewer: {event.reviewer_id}</p>{event.reason && <p>Reason: {event.reason}</p>}{event.reviewed_text && <p>Final text: {event.reviewed_text}</p>}</div>) : <p className="muted">No audit events recorded.</p>}</div>}
+    {auditOpen && events && <div className="audit-log"><h4>Decision history</h4>{events.length ? events.map(event => <div key={event.id} className="audit-event"><strong>{event.decision}</strong> · {new Date(event.created_at).toLocaleString('en-US')}<p className="muted">Synthetic reviewer: {event.reviewer_id}</p>{event.previous_domain && <p>Original domain: {event.previous_domain}</p>}{event.reviewed_domain && <p>Reviewed domain: {event.reviewed_domain}</p>}{event.reason && <p>Reason: {event.reason}</p>}{event.reviewed_text && <p>Final text: {event.reviewed_text}</p>}</div>) : <p className="muted">No audit events recorded.</p>}</div>}
     {error && <p role="alert" className="error">{error}</p>}
   </article>;
 }
