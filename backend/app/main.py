@@ -126,7 +126,7 @@ def extract(session_id: str):
             raise HTTPException(status_code=404, detail="Session not found")
         if row["status"] != "draft":
             raise HTTPException(status_code=409, detail="Only draft sessions can be processed")
-        if one(conn, "SELECT id FROM observations WHERE session_id=:id LIMIT 1", {"id": session_id}):
+        if mode == "amd" and one(conn, "SELECT id FROM observations WHERE session_id=:id LIMIT 1", {"id": session_id}):
             raise HTTPException(status_code=409, detail="Session already has registered observations")
 
     if mode == "amd":
