@@ -11,7 +11,9 @@ def test_schema_and_foreign_keys():
     with engine.connect() as conn:
         conn.exec_driver_sql("PRAGMA foreign_keys=ON")
         Base.metadata.create_all(conn)
-        assert set(inspect(conn).get_table_names()) == {"cases", "sessions", "organizations", "professionals", "patients", "guardians", "patient_guardians", "observations"}
+        assert set(inspect(conn).get_table_names()) == {"cases", "sessions", "organizations", "professionals", "patients", "guardians", "patient_guardians", "observations", "observation_review_events"}
+        review_fks = inspect(conn).get_foreign_keys("observation_review_events")
+        assert {fk["referred_table"] for fk in review_fks} == {"observations", "professionals"}
         conn.commit()
         with DBSession(bind=conn) as db:
             db.add(Case(id="OT-001", created_at="2026-10-15T00:00:00+00:00"))
