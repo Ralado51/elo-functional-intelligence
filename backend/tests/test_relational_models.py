@@ -13,9 +13,10 @@ def test_patient_guardian_and_observation_relationships():
         Base.metadata.create_all(conn)
         with DBSession(bind=conn) as db:
             db.add(Organization(id="org-1", name="Synthetic Clinic", created_at="2026-10-16"))
+            db.flush()  # Parent organization must exist before dependent records.
             db.add(Patient(id="p-1", organization_id="org-1", synthetic_code="PAT-001", created_at="2026-10-16"))
             db.add(Guardian(id="g-1", organization_id="org-1", display_name="Synthetic Guardian", created_at="2026-10-16"))
-            db.flush()
+            db.flush()  # Persist patient and guardian before association rows.
             db.add(PatientGuardian(patient_id="p-1", guardian_id="g-1", relationship="parent"))
             db.add(Case(id="OT-001", patient_id="p-1", created_at="2026-10-16"))
             db.flush()
