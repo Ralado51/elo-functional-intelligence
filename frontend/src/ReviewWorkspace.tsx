@@ -26,7 +26,7 @@ type ReviewEvent = {
   created_at: string;
 };
 
-type Props = { apiBase: string; sessionId: string | null };
+type Props = { apiBase: string; sessionId: string | null; onReviewCompleted?: () => void };
 
 async function request<T>(apiBase: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(apiBase + path, body === undefined ? undefined : {
@@ -105,7 +105,7 @@ function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
   </article>;
 }
 
-export default function ReviewWorkspace({ apiBase, sessionId }: Props) {
+export default function ReviewWorkspace({ apiBase, sessionId, onReviewCompleted }: Props) {
   const [observations, setObservations] = useState<RegistryObservation[]>([]);
   const [reviewerId, setReviewerId] = useState('');
   const [error, setError] = useState('');
@@ -145,7 +145,7 @@ export default function ReviewWorkspace({ apiBase, sessionId }: Props) {
       <button className="secondary" disabled={loading} onClick={() => void refresh().catch(e => setError(String(e)))}>Refresh observations</button>
       {loading && <p className="muted">Loading observations...</p>}
       {loaded && !observations.length && <p className="muted">This session has no registered observations. Mock mode does not generate observations automatically.</p>}
-      {sortedObservations.map(o => <ObservationCard key={o.id} observation={o} apiBase={apiBase} reviewerId={reviewerId} onReviewed={refresh}/>)}
+      {sortedObservations.map(o => <ObservationCard key={o.id} observation={o} apiBase={apiBase} reviewerId={reviewerId} onReviewed={async () => { await refresh(); onReviewCompleted?.(); }}/>)}
       {error && <p role="alert" className="error">{error}</p>}
     </>}
   </section>;
