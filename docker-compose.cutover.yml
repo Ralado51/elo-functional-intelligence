@@ -1,0 +1,9 @@
+# Opt-in API cutover: use only after verifying PostgreSQL import.
+# Run with all three Compose files, in this order.
+services:
+  api:
+    environment:
+      ELO_DATABASE_URL: postgresql+psycopg://elo:${ELO_POSTGRES_PASSWORD:?Set ELO_POSTGRES_PASSWORD}@postgres:5432/elo
+    depends_on:
+      postgres:
+        condition: service_healthy
