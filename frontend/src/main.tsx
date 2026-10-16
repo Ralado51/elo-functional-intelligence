@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './style.css';
+import ReviewWorkspace from './ReviewWorkspace';
 
 type Observation = { category: string; description: string; evidence: string; requires_review: boolean };
 type Session = { id: string; case_id: string; notes: string; duration_minutes: number; created_at: string; status: 'draft'|'pending'|'approved'; extraction: { observations: Observation[]; missing_information: string[] } | null; reviewed_text: string | null; approved_at: string | null };
@@ -67,7 +68,7 @@ function App() {
         <p className="muted">Session ID: {session.id}</p><button onClick={extract} disabled={busy || session.status !== 'draft'}>Process session (mock)</button>
         {session.extraction && <><div className="notice">MOCK MODE — No AMD inference has occurred. No observations have been generated.</div><h3>Extracted observations</h3>{session.extraction.observations.length ? session.extraction.observations.map((o,i)=><div key={i}><strong>{o.category}</strong><p>{o.description}</p><small>Evidence: {o.evidence}</small></div>) : <p className="muted">None. Awaiting real AMD integration.</p>}<h3>Missing information</h3><ul>{session.extraction.missing_information.map((m,i)=><li key={i}>{m}</li>)}</ul><label>Professional review (manual)</label><textarea rows={5} value={session.status === 'approved' ? session.reviewed_text ?? '' : review} onChange={e => setReview(e.target.value)} disabled={session.status === 'approved'} placeholder="Enter your own reviewed documentation; no clinical text is generated in mock mode."/><button onClick={approve} disabled={busy || session.status !== 'pending' || !review.trim()}>Approve reviewed record</button>{session.approved_at && <p className="muted">Approved: {new Date(session.approved_at).toLocaleString()}</p>}</>}
       </>}</section>
-    </div>{error && <p role="alert" className="error">{error}</p>}<footer>Prototype only. Not for diagnosis or clinical decision-making. Do not enter real patient data.</footer>
+    </div><ReviewWorkspace apiBase={API} sessionId={session?.id ?? null}/>{error && <p role="alert" className="error">{error}</p>}<footer>Prototype only. Not for diagnosis or clinical decision-making. Do not enter real patient data.</footer>
   </main>;
 }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
