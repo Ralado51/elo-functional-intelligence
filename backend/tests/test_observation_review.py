@@ -27,11 +27,14 @@ def test_review_lifecycle(tmp_path, monkeypatch):
     reviewed = client.post(url, json={"reviewer_id": prof["id"], "decision": "correct", "reviewed_text": "Completed activity with verbal support (reviewed)."})
     assert reviewed.status_code == 200, reviewed.text
     assert reviewed.json()["review_status"] == "corrected"
+    assert reviewed.json()["reviewed_domain"] == "Participation"
     assert reviewed.json()["source_excerpt"] == obs["source_excerpt"]
     assert client.post(url, json={"reviewer_id": prof["id"], "decision": "approve"}).status_code == 409
     events = client.get(f"/registry/observations/{obs['id']}/review-events").json()
     assert len(events) == 1
     assert events[0]["decision"] == "correct"
+    assert events[0]["previous_domain"] == "Participation"
+    assert events[0]["reviewed_domain"] == "Participation"
     approved = client.get(f"/registry/sessions/{session['id']}/approved-observations").json()
     assert len(approved) == 1
     engine_for.cache_clear()
