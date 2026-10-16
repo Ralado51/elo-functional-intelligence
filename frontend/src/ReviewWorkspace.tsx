@@ -1,0 +1,143 @@
+import React, { useEffect, useState } from 'react';
+
+export type RegistryObservation = {
+  id: string;
+  session_id: string;
+  source_excerpt: string;
+  functional_domain: string;
+  observation_text: string;
+  review_status: 'pending' | 'approved' | 'corrected' | 'rejected';
+  reviewed_text?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+};
+
+type ReviewEvent = {
+  id: string;
+  decision: string;
+  previous_status: string;
+  previous_text: string;
+  reviewed_text: string | null;
+  reason: string | null;
+  reviewer_id: string;
+  created_at: string;
+};
+
+type Props = { apiBase: string; sessionId: string | null };
+
+async function request<T>(apiBase: string, path: string, body?: unknown): Promise<T> {
+  const response = await fetch(apiBase + path, body === undefined ? undefined : {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) throw new Error('HTTP ' + response.status + ': ' + await response.text());
+  return response.json() as Promise<T>;
+}
+
+function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
+  observation: RegistryObservation;
+  apiBase: string;
+  reviewerId: string;
+  onReviewed: () => Promise<void>;
+}) {
+  const [decision, setDecision] = useState<'approve' | 'correct' | 'reject'>('approve');
+  const [correctedText, setCorrectedText] = useState(observation.observation_text);
+  const [reason, setReason] = useState('');
+  const [events, setEvents] = useState<ReviewEvent[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [auditBusy, setAuditBusy] = useState(false);
+
+  async function loadEvents() {
+    setAuditBusy(true);
+    setError('');
+    try { setEvents(await request<ReviewEvent[]>(apiBase, '/registry/observations/' + encodeURIComponent(observation.id) + '/review-events')); }
+    catch (e) { setError(String(e)); }
+    finally { setAuditBusy(false); }
+  }
+
+  async function submitReview() {
+    setError('');
+    if (!reviewerId.trim()) { setError('Selecione o identificador de um profissional sintético cadastrado.'); return; }
+    if (decision === 'correct' && !correctedText.trim()) { setError('A correção precisa conter texto.'); return; }
+    if (decision === 'reject' && !reason.trim()) { setError('Informe o motivo da rejeição.'); return; }
+    setBusy(true);
+    try {
+      await request(apiBase, '/registry/observations/' + encodeURIComponent(observation.id) + '/review', {
+        reviewer_id: reviewerId.trim(),
+        decision,
+        ...(decision === 'correct' ? { reviewed_text: correctedText.trim() } : {}),
+        ...(decision === 'reject' ? { reason: reason.trim() } : {})
+      });
+      await onReviewed();
+      await loadEvents();
+    } catch (e) { setError(String(e)); }
+    finally { setBusy(false); }
+  }
+
+  return <article className="observation-card">
+    <div className="observation-heading"><strong>{observation.functional_domain}</strong><span className={'review-chip ' + observation.review_status}>{observation.review_status}</span></div>
+    <p>{observation.observation_text}</p>
+    <div className="evidence"><strong>Evidência literal da sessão</strong><blockquote>{observation.source_excerpt}</blockquote></div>
+    {observation.review_status !== 'pending' && <p className="muted">Resultado revisado: {observation.reviewed_text || 'Rejeitado — não utilizar como observação validada.'}</p>}
+    {observation.review_status === 'pending' && <div className="review-form">
+      <label htmlFor={'decision-' + observation.id}>Decisão profissional</label>
+      <select id={'decision-' + observation.id} value={decision} onChange={e => setDecision(e.target.value as typeof decision)} disabled={busy}>
+        <option value="approve">Aprovar sem alterações</option>
+        <option value="correct">Corrigir observação</option>
+        <option value="reject">Rejeitar observação</option>
+      </select>
+      {decision === 'correct' && <><label htmlFor={'correction-' + observation.id}>Texto corrigido</label><textarea id={'correction-' + observation.id} rows={4} value={correctedText} onChange={e => setCorrectedText(e.target.value)} disabled={busy}/></>}
+      {decision === 'reject' && <><label htmlFor={'reason-' + observation.id}>Motivo obrigatório</label><textarea id={'reason-' + observation.id} rows={3} value={reason} onChange={e => setReason(e.target.value)} disabled={busy}/></>}
+      <button onClick={() => void submitReview()} disabled={busy || !reviewerId.trim() || (decision === 'correct' && !correctedText.trim()) || (decision === 'reject' && !reason.trim())}>Confirmar decisão</button>
+    </div>}
+    <button className="secondary" disabled={auditBusy} onClick={() => void loadEvents()}>{auditBusy ? 'Carregando...' : 'Ver histórico de auditoria'}</button>
+    {events && <div className="audit-log"><h4>Histórico de decisões</h4>{events.length ? events.map(event => <div key={event.id} className="audit-event"><strong>{event.decision}</strong> · {new Date(event.created_at).toLocaleString('pt-BR')}<p className="muted">Revisor sintético: {event.reviewer_id}</p>{event.reason && <p>Motivo: {event.reason}</p>}{event.reviewed_text && <p>Texto final: {event.reviewed_text}</p>}</div>) : <p className="muted">Nenhum evento registrado.</p>}</div>}
+    {error && <p role="alert" className="error">{error}</p>}
+  </article>;
+}
+
+export default function ReviewWorkspace({ apiBase, sessionId }: Props) {
+  const [observations, setObservations] = useState<RegistryObservation[]>([]);
+  const [reviewerId, setReviewerId] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  async function refresh() {
+    if (!sessionId) return;
+    const result = await request<RegistryObservation[]>(apiBase, '/registry/sessions/' + encodeURIComponent(sessionId) + '/observations');
+    setObservations(result);
+    setLoaded(true);
+  }
+
+  useEffect(() => {
+    setObservations([]); setLoaded(false); setError('');
+    if (!sessionId) return;
+    let active = true;
+    setLoading(true);
+    request<RegistryObservation[]>(apiBase, '/registry/sessions/' + encodeURIComponent(sessionId) + '/observations')
+      .then(result => { if (active) { setObservations(result); setLoaded(true); } })
+      .catch(e => { if (active) setError(String(e)); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [apiBase, sessionId]);
+
+  const pending = observations.filter(o => o.review_status === 'pending').length;
+  const accepted = observations.filter(o => o.review_status === 'approved' || o.review_status === 'corrected').length;
+  return <section className="panel registry-review">
+    <h2>04 / Revisão de observações funcionais</h2>
+    <p className="muted">Revisão individual e auditável. O identificador do profissional é sintético e não representa autenticação. Não utilizar dados reais de pacientes.</p>
+    {!sessionId ? <p className="muted">Selecione uma sessão no histórico para visualizar suas observações.</p> : <>
+      <label htmlFor="reviewer-id">ID do profissional sintético cadastrado</label>
+      <input id="reviewer-id" value={reviewerId} onChange={e => setReviewerId(e.target.value)} placeholder="UUID do profissional criado em /registry/professionals"/>
+      <div className="review-summary"><span>{observations.length} observações</span><span>{pending} pendentes</span><span>{accepted} aprovadas ou corrigidas</span></div>
+      <button className="secondary" disabled={loading} onClick={() => void refresh().catch(e => setError(String(e)))}>Atualizar observações</button>
+      {loading && <p className="muted">Carregando observações...</p>}
+      {loaded && !observations.length && <p className="muted">Esta sessão ainda não possui observações cadastradas. O modo mock não gera observações automaticamente.</p>}
+      {observations.map(o => <ObservationCard key={o.id} observation={o} apiBase={apiBase} reviewerId={reviewerId} onReviewed={refresh}/>)}
+      {error && <p role="alert" className="error">{error}</p>}
+    </>}
+  </section>;
+}
