@@ -94,7 +94,7 @@ function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
       <button onClick={() => void submitReview()} disabled={busy || !reviewerId.trim() || (decision === 'correct' && (correctedText.trim().length < 12 || correctedText.trim().split(/\s+/).length < 3)) || (decision === 'reject' && !reason.trim())}>Confirm decision</button>
     </div>}
     <button className="secondary" aria-expanded={auditOpen} disabled={auditBusy} onClick={() => { if (auditOpen) setAuditOpen(false); else { setAuditOpen(true); if (!events) void loadEvents(); } }}>{auditBusy ? 'Loading...' : auditOpen ? 'Hide audit history' : 'View audit history'}</button>
-    {auditOpen && events && <div className="audit-log"><h4>Decision history</h4>{events.length ? events.map(event => <div key={event.id} className="audit-event"><strong>{event.decision}</strong> · {new Date(event.created_at).toLocaleString('pt-BR')}<p className="muted">Synthetic reviewer: {event.reviewer_id}</p>{event.reason && <p>Reason: {event.reason}</p>}{event.reviewed_text && <p>Final text: {event.reviewed_text}</p>}</div>) : <p className="muted">No audit events recorded.</p>}</div>}
+    {auditOpen && events && <div className="audit-log"><h4>Decision history</h4>{events.length ? events.map(event => <div key={event.id} className="audit-event"><strong>{event.decision}</strong> · {new Date(event.created_at).toLocaleString('en-US')}<p className="muted">Synthetic reviewer: {event.reviewer_id}</p>{event.reason && <p>Reason: {event.reason}</p>}{event.reviewed_text && <p>Final text: {event.reviewed_text}</p>}</div>) : <p className="muted">No audit events recorded.</p>}</div>}
     {error && <p role="alert" className="error">{error}</p>}
   </article>;
 }
@@ -136,9 +136,9 @@ export default function ReviewWorkspace({ apiBase, sessionId }: Props) {
       <label htmlFor="reviewer-id">Registered synthetic professional ID</label>
       <input id="reviewer-id" value={reviewerId} onChange={e => setReviewerId(e.target.value)} placeholder="Professional UUID from /registry/professionals"/>
       <div className="review-summary" aria-label="Review summary"><span><strong>{observations.length}</strong> observations</span><span className="pending-count"><strong>{pending}</strong> pending</span><span><strong>{accepted}</strong> approved or corrected</span><span><strong>{rejected}</strong> rejected</span></div>
-      <button className="secondary" disabled={loading} onClick={() => void refresh().catch(e => setError(String(e)))}>Atualizar observations</button>
-      {loading && <p className="muted">Carregando observations...</p>}
-      {loaded && !observations.length && <p className="muted">Esta sessão ainda não possui observations cadastradas. O modo mock não gera observations automaticamente.</p>}
+      <button className="secondary" disabled={loading} onClick={() => void refresh().catch(e => setError(String(e)))}>Refresh observations</button>
+      {loading && <p className="muted">Loading observations...</p>}
+      {loaded && !observations.length && <p className="muted">This session has no registered observations. Mock mode does not generate observations automatically.</p>}
       {sortedObservations.map(o => <ObservationCard key={o.id} observation={o} apiBase={apiBase} reviewerId={reviewerId} onReviewed={refresh}/>)}
       {error && <p role="alert" className="error">{error}</p>}
     </>}
