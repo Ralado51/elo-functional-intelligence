@@ -19,6 +19,7 @@ class ReviewInput(BaseModel):
     decision: Literal["approve", "correct", "reject"]
     reviewed_text: str | None = Field(default=None, min_length=1)
     reason: str | None = Field(default=None, min_length=1)
+    reviewed_domain: str | None = Field(default=None, min_length=2, max_length=80)
 
 @router.post("/observations/{observation_id}/review")
 def review_observation(observation_id: str, payload: ReviewInput):
@@ -28,6 +29,8 @@ def review_observation(observation_id: str, payload: ReviewInput):
         raise HTTPException(422, "Rejection requires reason")
     if payload.decision != "correct" and payload.reviewed_text is not None:
         raise HTTPException(422, "reviewed_text is only accepted for corrections")
+    if payload.decision != "correct" and payload.reviewed_domain is not None:
+        raise HTTPException(422, "Domain can only change during correction")
     now = datetime.now(timezone.utc).isoformat()
     with db() as conn:
         observation = one(conn, """SELECT o.*, s.status AS session_status, c.patient_id,
@@ -52,18 +55,20 @@ def review_observation(observation_id: str, payload: ReviewInput):
         status = {"approve": "approved", "correct": "corrected", "reject": "rejected"}[payload.decision]
         final_text = payload.reviewed_text if payload.decision == "correct" else (
             observation["observation_text"] if payload.decision == "approve" else None)
-        result = execute(conn, """UPDATE observations SET review_status=:status, reviewed_text=:text,
+        final_domain = (payload.reviewed_domain or observation["functional_domain"]) if status != "rejected" else None
+        result = execute(conn, """UPDATE observations SET review_status=:status, reviewed_text=:text, reviewed_domain=:domain,
             reviewed_by=:reviewer, reviewed_at=:now WHERE id=:id AND review_status='pending'""",
-            {"status": status, "text": final_text, "reviewer": reviewer["id"], "now": now, "id": observation_id})
+            {"status": status, "text": final_text, "domain": final_domain, "reviewer": reviewer["id"], "now": now, "id": observation_id})
         if result.rowcount != 1:
             raise HTTPException(409, "Observation review conflict")
         execute(conn, """INSERT INTO observation_review_events
-            (id,observation_id,reviewer_id,decision,previous_status,previous_text,reviewed_text,reason,created_at)
-            VALUES (:id,:observation_id,:reviewer_id,:decision,:previous_status,:previous_text,:reviewed_text,:reason,:created_at)""",
+            (id,observation_id,reviewer_id,decision,previous_status,previous_text,reviewed_text,reason,created_at,previous_domain,reviewed_domain)
+            VALUES (:id,:observation_id,:reviewer_id,:decision,:previous_status,:previous_text,:reviewed_text,:reason,:created_at,:previous_domain,:reviewed_domain)""",
             {"id": str(uuid4()), "observation_id": observation_id, "reviewer_id": reviewer["id"],
              "decision": payload.decision, "previous_status": observation["review_status"],
              "previous_text": observation["observation_text"], "reviewed_text": final_text,
-             "reason": payload.reason, "created_at": now})
+             "reason": payload.reason, "created_at": now,
+             "previous_domain": observation["functional_domain"], "reviewed_domain": final_domain})
         return one(conn, "SELECT * FROM observations WHERE id=:id", {"id": observation_id})
 
 @router.get("/observations/{observation_id}/review-events")
