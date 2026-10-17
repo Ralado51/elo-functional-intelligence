@@ -17,13 +17,16 @@ from app.functional_progress import router as functional_progress_router
 from app.functional_documentation import router as functional_documentation_router
 from app.amd_inference import AMDInferenceError, extract_candidates
 
+from app.family_reports import router as family_reports_router
+
 app = FastAPI(title="Elo Functional Intelligence API", version="0.3.0")
 app.include_router(registry_router)
+app.include_router(family_reports_router)
 app.include_router(review_router)
 app.include_router(dashboards_router)
 app.include_router(functional_progress_router)
 app.include_router(functional_documentation_router)
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET", "POST"], allow_headers=["Content-Type", "X-Family-Report-Token"])
 
 class CaseInput(BaseModel):
     id: str = Field(min_length=1, max_length=80, pattern=r"^[A-Za-z0-9_-]+$")
