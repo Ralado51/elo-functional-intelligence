@@ -2,7 +2,7 @@
 
 **Elo Functional Intelligence · AMD Developer Hackathon ACT III · Health and Wellbeing**
 
-Documentation baseline: main `dcd6961ce2172da76a39a33ea00fe8b1b5317516`. This index describes evidence and its limits; it is not an independent production certification. This documentation branch does not include or modify PR #34's visual redesign.
+Documentation baseline: main `dcd6961ce2172da76a39a33ea00fe8b1b5317516`. This index describes evidence and its limits; it is not an independent production certification. This release candidate includes the pinned PR #34 visual snapshot and PR #36 guarded family reports; see [combined validation](COMBINED_RELEASE_CANDIDATE.md).
 
 ## Evidence classes
 
@@ -108,5 +108,5 @@ For this change, executed documentation checks passed: **63 relative repository 
 - Verbatim source matching proves textual provenance, not semantic correctness; no labeled clinical benchmark, clinical outcome, developmental norm or longitudinal improvement is established.
 - Human UUID references are not authenticated professional identities; append-only API history is not a tamper-proof database. Real-patient privacy/consent, access control and retention are future design gates.
 - Session creation is limited to 40 minutes. Functional evidence remains narrative with heuristic topic grouping and bounded session selection; missing information is not zero.
-- Visual changes in PR #34 remain independently scoped and are not described as part of this main-based documentation checkout.
+- The combined release includes the selected-session visual snapshot and opt-in family reports. Live family inference remains unverified; see the combined release record.
 - Any additional production collection, image publication, deployment, live inference or hackathon submission requires separate authorization. Do not rerun extraction or replace existing synthetic records to fill evidence gaps.

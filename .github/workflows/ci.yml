@@ -30,3 +30,47 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+  postgres-rc:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: synthetic-rc-ci-only
+          POSTGRES_DB: elo_rc
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d elo_rc"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    env:
+      ELO_DATABASE_URL: postgresql+psycopg://postgres:synthetic-rc-ci-only@127.0.0.1:5432/elo_rc
+      ELO_RC_TEST_DATABASE_URL: postgresql+psycopg://postgres:synthetic-rc-ci-only@127.0.0.1:5432/elo_rc
+      RADEON_API_KEY: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r backend/requirements.txt
+      - name: Prepare protected synthetic records on revision 0004
+        working-directory: backend
+        run: |
+          python -m alembic upgrade 0004_reviewed_functional_domain
+          PYTHONPATH=. python ../scripts/validate-combined-rc.py prepare --state "$RUNNER_TEMP/elo-rc-state.json"
+      - name: Backup synthetic pre-upgrade database
+        run: docker exec ${{ job.services.postgres.id }} pg_dump -U postgres -d elo_rc -Fc > "$RUNNER_TEMP/elo-rc.dump"
+      - name: Additive migration and mocked report lifecycle
+        working-directory: backend
+        run: |
+          python -m alembic upgrade head
+          PYTHONPATH=. python ../scripts/validate-combined-rc.py verify --state "$RUNNER_TEMP/elo-rc-state.json"
+      - name: Previous-source rollback compatibility and backup restoration
+        run: |
+          mkdir -p "$RUNNER_TEMP/elo-legacy"
+          git archive dcd6961ce2172da76a39a33ea00fe8b1b5317516 backend | tar -x -C "$RUNNER_TEMP/elo-legacy"
+          PYTHONPATH="$RUNNER_TEMP/elo-legacy/backend" python scripts/validate-combined-rc.py legacy --state "$RUNNER_TEMP/elo-rc-state.json"
+          docker exec ${{ job.services.postgres.id }} createdb -U postgres elo_rc_restore
+          docker exec -i ${{ job.services.postgres.id }} pg_restore -U postgres -d elo_rc_restore < "$RUNNER_TEMP/elo-rc.dump"
+          ELO_RC_TEST_DATABASE_URL=postgresql+psycopg://postgres:synthetic-rc-ci-only@127.0.0.1:5432/elo_rc_restore PYTHONPATH="$RUNNER_TEMP/elo-legacy/backend" python scripts/validate-combined-rc.py legacy --state "$RUNNER_TEMP/elo-rc-state.json"

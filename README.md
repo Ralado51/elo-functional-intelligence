@@ -48,6 +48,10 @@ flowchart LR
 
 The [documentation preview](backend/app/functional_documentation.py) returns accepted observations, sources, reviewer/audit references and consolidation blockers. The [consolidated draft](frontend/src/FunctionalConsolidatedDraft.tsx) deterministically renders eligible records using that same GET response: linked synthetic patient, at least one accepted observation and no pending observations. It is not a separately persisted or signed report. [Functional architecture and longitudinal proposal](docs/FUNCTIONAL_PROGRESS_ARCHITECTURE.md) and [release-candidate evidence](docs/ACT_III_RELEASE_CANDIDATE.md) explain limits and validation.
 
+## Family report draft (opt-in)
+
+Session Workspace can assemble a guarded, printable synthetic family draft with explicit operator authorization and separate therapist approval/rejection. Only source/audit-verified accepted observations in the supported vocabulary may be sent as minimal text and aliases to AMD. A durable per-session reservation prevents repeat provider attempts; failures are not automatically retried. The feature is disabled by default. See [family-report safeguards and live verification](docs/FAMILY_REPORT_MVP.md) and [combined release gates](docs/COMBINED_RELEASE_CANDIDATE.md). No live inference was executed for this release candidate.
+
 ## Local development
 
 Use Python **3.12** and Node **20**, matching CI. Run these commands from the repository root in separate terminals. They use local synthetic data and mock mode; do not point tests or development at production.
@@ -97,6 +101,6 @@ For October 17, 2026, the operator reports healthy API/frontend/PostgreSQL, migr
 
 Only synthetic records are supported. Human review is mandatory for accepting observations as documentation evidence; there is no automatic clinical approval. Source matching does not measure extraction accuracy. No clinical benchmark, standardized assessment, diagnosis, developmental norm, treatment-effectiveness claim or longitudinal improvement percentage is established. `/health` reports configured readiness/mode; it is not proof of successful model execution, and per-request inference provenance, latency and billing are not persisted by the active adapter.
 
-Future work includes consent/guardian transitions, scoped identity/authorization, privacy/retention design, versioned activity goals/measurements and context-aware comparability **before** real-patient or life-stage timelines; see the [longitudinal proposal](docs/FUNCTIONAL_PROGRESS_ARCHITECTURE.md). No lifetime storage is implemented by that proposal. Existing sprint specifications remain as historical design documents, not proof that every proposed feature shipped. PR #34's visual redesign is independent of this documentation branch and is not treated as merged functionality here.
+Future work includes consent/guardian transitions, scoped identity/authorization, privacy/retention design, versioned activity goals/measurements and context-aware comparability **before** real-patient or life-stage timelines; see the [longitudinal proposal](docs/FUNCTIONAL_PROGRESS_ARCHITECTURE.md). No lifetime storage is implemented by that proposal. Existing sprint specifications remain as historical design documents, not proof that every proposed feature shipped. This release candidate combines the pinned visual snapshot, documentation and guarded family-report implementations; see [combined release validation](docs/COMBINED_RELEASE_CANDIDATE.md).
 
 Licensed under the [MIT License](LICENSE), copyright © 2026 Airton Justino O. Junior. See the historical [product specification](docs/PRODUCT_SPEC.md) and current [hackathon evidence index](docs/HACKATHON_EVIDENCE_INDEX.md).
