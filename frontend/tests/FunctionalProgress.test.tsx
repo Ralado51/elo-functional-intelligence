@@ -1,3 +1,4 @@
+import originalAccounts from './fixtures/ot001-original.json';
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -30,6 +31,7 @@ it('shows literal approximate participation wording, recorded duration and audit
   expect(screen.getByRole('status')).toBeTruthy();
   await flush();
   expect(screen.getAllByText(account).length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByText('Source observations & human decisions', { exact: false }));
   expect(screen.getByRole('heading', { name: '40-minute session' })).toBeTruthy();
   expect(screen.getByText(/Audit event references: audit-attention/)).toBeTruthy();
   expect(screen.getByText(/One-session evidence, not a progress score/)).toBeTruthy();
@@ -114,4 +116,70 @@ it('bounds stalled requests and cancels them on unmount', async () => {
   expect(screen.queryByRole('status')).toBeNull();
   expect(signal?.aborted).toBe(true);
   view.unmount();
+});
+
+it('links visual markers to exact reviewed evidence and labels the original illustration', async () => {
+  setup(); await flush();
+  const overview = screen.getByRole('region', { name: 'Documented activity overview' });
+  expect(overview.textContent).toContain('Approximately');
+  expect(overview.textContent).toContain('8');
+  expect(overview.textContent).toContain('not clinical performance scores');
+  expect(overview.querySelector('a')?.getAttribute('href')).toBe('#functional-record-obs-attention');
+  expect(screen.getByRole('img', { name: /fictional child/ })).toBeTruthy();
+  expect(overview.textContent).toContain('not patient imagery');
+  expect(overview.textContent).not.toContain('70%');
+});
+
+it('selects empty sessions from the evidence matrix without illustrative measurement carryover', async () => {
+  setup(); await flush();
+  expect(screen.getByRole('region', { name: 'Session snapshot selection' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Explore recorded session 1' }).getAttribute('aria-pressed')).toBe('true');
+  fireEvent.click(screen.getByRole('button', { name: 'Explore recorded session 2' }));
+  expect(screen.queryByRole('region', { name: 'Documented activity overview' })).toBeNull();
+  expect(screen.queryByText(account)).toBeNull();
+  expect(screen.getByRole('button', { name: 'Explore recorded session 2' }).textContent).toContain('No observations');
+});
+
+it('retains corrected negative wording in the visual marker without extracting positive numbers', async () => {
+  const negative = 'Did not maintain attention for eight minutes; duration was not measured.';
+  setup({ ...data, sessions: [{ ...measured, evidence: [{ ...evidence, review_status: 'corrected', reviewed_text: negative }] }] });
+  await flush();
+  const overview = screen.getByRole('region', { name: 'Documented activity overview' });
+  expect(overview.textContent).toContain('Not structurally measurable');
+  expect(screen.getAllByText(negative).length).toBeGreaterThan(0);
+  expect(overview.textContent).toContain('Reviewed correction');
+  expect(overview.textContent).not.toContain('8 minutes');
+});
+
+it('opens expandable exact evidence from a compact measurement marker', async () => {
+  setup(); await flush();
+  const details = document.querySelector('.evidence-details') as HTMLDetailsElement;
+  expect(details.open).toBe(false);
+  fireEvent.click(screen.getByRole('region', { name: 'Documented activity overview' }).querySelector('a')!);
+  expect(details.open).toBe(true);
+  expect(details.textContent).toContain(account);
+  expect(details.textContent).toContain('audit-attention');
+});
+it('does not choose a numeric highlight when a topic has multiple reviewed accounts', async () => {
+  setup({ ...data, sessions: [{ ...measured, evidence: [evidence, { ...evidence, observation_id: 'second-account' }] }] });
+  await flush();
+  const overview = screen.getByRole('region', { name: 'Documented activity overview' });
+  expect(overview.querySelector('.marker-attention .measurement-value')).toBeNull();
+  expect(overview.querySelector('.marker-attention')?.textContent).toContain('Not structurally measurable');
+});
+
+it('projects all four exact original OT-001 narratives with assistance, source links and no count chart', async () => {
+  const originals = originalAccounts.map((item, index) => ({ ...evidence, observation_id: 'original-' + index, domain: item.domain, original_text: item.text, reviewed_text: item.text, source_excerpt: item.text, topics: [item.topic] }));
+  setup({ ...data, sessions: [{ ...measured, evidence: originals }, empty] }); await flush();
+  const overview = screen.getByRole('region', { name: 'Documented activity overview' });
+  for (const [topic, value] of [['initiation','3'],['attention','8'],['motor','7 / 10'],['transitions','2']]) expect(overview.querySelector('.marker-' + topic + ' .measurement-value')?.textContent).toBe(value);
+  expect(overview.textContent).toContain('minimal physical assistance for remaining attempts');
+  expect(overview.textContent).toContain('hesitation recorded');
+  expect(screen.queryByRole('region', { name: 'Session evidence comparison' })).toBeNull();
+  expect(document.querySelector('.session-bars')).toBeNull();
+  for (const account of originalAccounts) expect(screen.getAllByText(account.text).length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole('button', { name: 'Explore recorded session 2' }));
+  expect(screen.queryByRole('region', { name: 'Documented activity overview' })).toBeNull();
+  expect(document.querySelector('.measurement-value')).toBeNull();
+  expect(screen.getByRole('region', { name: 'Documented independent attempts' }).textContent).not.toContain('7');
 });
