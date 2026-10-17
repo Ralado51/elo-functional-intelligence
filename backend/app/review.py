@@ -33,7 +33,7 @@ def review_observation(observation_id: str, payload: ReviewInput):
         raise HTTPException(422, "Domain can only change during correction")
     now = datetime.now(timezone.utc).isoformat()
     with db() as conn:
-        observation = one(conn, """SELECT o.*, s.status AS session_status, c.patient_id,
+        observation = one(conn, """SELECT o.*, c.patient_id,
             p.organization_id AS patient_organization_id
             FROM observations o JOIN sessions s ON s.id=o.session_id
             JOIN cases c ON c.id=s.case_id
@@ -48,14 +48,25 @@ def review_observation(observation_id: str, payload: ReviewInput):
             raise HTTPException(409, "Session case must be linked to a synthetic patient before review")
         if reviewer["organization_id"] != observation["patient_organization_id"]:
             raise HTTPException(409, "Professional and patient must belong to the same organization")
-        if observation["session_status"] == "approved":
-            raise HTTPException(409, "Approved session is immutable")
+        # Session-text approval and observation review are separate decisions.
+        # Existing pending observations must remain reviewable after a session
+        # is approved. This route never rewrites the approved session itself.
         if observation["review_status"] != "pending":
             raise HTTPException(409, "Observation has already been reviewed")
         status = {"approve": "approved", "correct": "corrected", "reject": "rejected"}[payload.decision]
         final_text = payload.reviewed_text if payload.decision == "correct" else (
             observation["observation_text"] if payload.decision == "approve" else None)
         final_domain = (payload.reviewed_domain or observation["functional_domain"]) if status != "rejected" else None
+        if payload.decision == "correct":
+            # Compare whitespace-normalized values without rewriting either the
+            # original evidence or the professional's meaningful correction.
+            normalized_text = " ".join(final_text.split())
+            normalized_domain = " ".join(final_domain.split())
+            if not normalized_text or len(normalized_domain) < 2:
+                raise HTTPException(422, "Correction requires nonblank text and a functional domain")
+            if (normalized_text == " ".join(observation["observation_text"].split())
+                    and normalized_domain == " ".join(observation["functional_domain"].split())):
+                raise HTTPException(422, "Correction must change the text or functional domain; approve unchanged observations instead")
         result = execute(conn, """UPDATE observations SET review_status=:status, reviewed_text=:text, reviewed_domain=:domain,
             reviewed_by=:reviewer, reviewed_at=:now WHERE id=:id AND review_status='pending'""",
             {"status": status, "text": final_text, "domain": final_domain, "reviewer": reviewer["id"], "now": now, "id": observation_id})

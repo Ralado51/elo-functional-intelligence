@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './style.css';
 import ReviewWorkspace from './ReviewWorkspace';
+import FunctionalDocumentationPreview from './FunctionalDocumentationPreview';
+import FunctionalConsolidatedDraft from './FunctionalConsolidatedDraft';
+import Dashboards, { DashboardNavigation, type Page } from './Dashboards';
 
 type Observation = { category: string; description: string; evidence: string; requires_review: boolean };
 type Session = { id: string; case_id: string; notes: string; duration_minutes: number; created_at: string; status: 'draft'|'pending'|'approved'; extraction: { observations: Observation[]; missing_information: string[] } | null; reviewed_text: string | null; approved_at: string | null };
@@ -16,6 +19,8 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
 }
 
 function App() {
+  const [page, setPage] = useState<Page>('operations');
+  const [documentationRevision, setDocumentationRevision] = useState(0);
   const [caseId, setCaseId] = useState('OT-001');
   const [cases, setCases] = useState<Case[]>([]);
   const [history, setHistory] = useState<Session[]>([]);
@@ -39,6 +44,7 @@ function App() {
     try {
       const next = await action();
       setSession(next);
+      setDocumentationRevision(value => value + 1);
       setReview(next.reviewed_text ?? '');
       await refreshCases();
       await refreshHistory(next.case_id);
@@ -50,15 +56,30 @@ function App() {
   const extract = () => session && health && run(() => api<Session>('/sessions/' + session.id + '/extract', {}));
   const approve = () => session && run(() => api<Session>('/sessions/' + session.id + '/approve', { reviewed_text: review }));
   function selectSession(item: Session) {
+    setDocumentationRevision(value => value + 1);
     setSession(item); setCaseId(item.case_id); setNotes(item.notes); setReview(item.reviewed_text ?? ''); setError('');
   }
   async function selectCase(id: string) {
+    setDocumentationRevision(value => value + 1);
     setCaseId(id); setSession(null); setReview(''); setError('');
     try { await refreshHistory(id); } catch (e) { setError(String(e)); }
   }
 
+  async function openDashboardSession(id: string) {
+    setError('');
+    try {
+      const selected = await api<Session>('/sessions/' + encodeURIComponent(id));
+      selectSession(selected);
+      setPage('workspace');
+      await refreshHistory(selected.case_id);
+    } catch (e) { setError(String(e)); }
+  }
+
   return <main>
     <header><div className="brand">ELO <span>FUNCTIONAL INTELLIGENCE</span></div><span className="tag">RESEARCH MVP · SYNTHETIC DATA ONLY</span></header>
+    <DashboardNavigation page={page} onChange={setPage}/>
+    {page !== 'workspace' && <Dashboards key={page} page={page} apiBase={API} onOpenSession={id => void openDashboardSession(id)}/>}
+    <div hidden={page !== 'workspace'}>
     <section className="intro"><p className="eyebrow">ELO IA LABS / HEALTH & WELLBEING</p><h1>Clinical observations.<br/><em>Functional clarity.</em></h1><p>Document 40-minute pediatric occupational therapy sessions with human-reviewed, traceable records.</p></section>
     <section className="panel history-panel"><h2>01 / Case history</h2><div className="history-controls"><label htmlFor="case-picker">Synthetic case</label><select id="case-picker" value={cases.some(c => c.id === caseId) ? caseId : ''} onChange={e => void selectCase(e.target.value)}><option value="">Choose a registered case</option>{cases.map(c => <option key={c.id} value={c.id}>{c.id}</option>)}</select><button className="secondary" disabled={busy || !caseId.trim()} onClick={() => void refreshHistory(caseId).catch(e => setError(String(e)))}>Refresh history</button></div>
       <p className="muted">You may also enter a new synthetic case ID in the session form below. No identifiable patient information.</p>
@@ -70,7 +91,7 @@ function App() {
         <p className="muted">Session ID: {session.id}</p><div className="status" role="status">Current inference mode: <strong>{health ? (health.amd_inference ? 'AMD Token Factory' : 'Mock') : 'Unavailable'}</strong></div><button onClick={extract} disabled={busy || session.status !== 'draft' || !health}>{health?.amd_inference ? 'Extract with AMD AI' : 'Process session (mock)'}</button>
         {session.extraction && <><div className="notice">{session.extraction.observations.length ? "This session contains extracted observations. Verify every evidence excerpt and complete human review before using any observation." : "No extracted observations are recorded for this session. Review the missing information below."} Current API mode: {health?.amd_inference ? "AMD Token Factory" : "Mock or unavailable"}.</div><h3>Extracted observations</h3>{session.extraction.observations.length ? session.extraction.observations.map((o,i)=><div key={i}><strong>{o.category}</strong><p>{o.description}</p><small>Evidence: {o.evidence}</small></div>) : <p className="muted">None recorded for this session.</p>}<h3>Missing information</h3><ul>{session.extraction.missing_information.map((m,i)=><li key={i}>{m}</li>)}</ul><label>Professional review (manual)</label><textarea rows={5} value={session.status === 'approved' ? session.reviewed_text ?? '' : review} onChange={e => setReview(e.target.value)} disabled={session.status === 'approved'} placeholder="Enter your own reviewed documentation. AI-generated text is never automatically approved."/><button onClick={approve} disabled={busy || session.status !== 'pending' || !review.trim()}>Approve reviewed record</button>{session.approved_at && <p className="muted">Approved: {new Date(session.approved_at).toLocaleString()}</p>}</>}
       </>}</section>
-    </div><ReviewWorkspace apiBase={API} sessionId={session?.id ?? null}/>{error && <p role="alert" className="error">{error}</p>}<footer>Prototype only. Not for diagnosis or clinical decision-making. Do not enter real patient data.</footer>
+    </div><ReviewWorkspace apiBase={API} sessionId={session?.id ?? null} onReviewCompleted={() => setDocumentationRevision(value => value + 1)}/><FunctionalDocumentationPreview apiBase={API} sessionId={session?.id ?? null} revision={documentationRevision}/><FunctionalConsolidatedDraft apiBase={API} sessionId={session?.id ?? null} revision={documentationRevision}/></div>{error && <p role="alert" className="error">{error}</p>}<footer>Prototype only. Not for diagnosis or clinical decision-making. Do not enter real patient data.</footer>
   </main>;
 }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
