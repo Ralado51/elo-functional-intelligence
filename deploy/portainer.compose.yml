@@ -1,0 +1,77 @@
+# Standalone Docker Compose stack. Do not combine with development Compose files.
+# Requires PR #18 images including migrations; see docs/PORTAINER_DEMO.md.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: elo_demo
+      POSTGRES_USER: elo_demo
+      POSTGRES_PASSWORD: ${ELO_POSTGRES_PASSWORD:?Set a new demo-only database password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [private]
+    labels:
+      traefik.enable: "false"
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U elo_demo -d elo_demo"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    image: ${ELO_API_IMAGE:?Set lowercase GHCR API image with approved SHA tag or digest}
+    restart: unless-stopped
+    environment:
+      ELO_DATABASE_URL: postgresql+psycopg://elo_demo:${ELO_POSTGRES_PASSWORD:?Set database password}@postgres:5432/elo_demo
+      ELO_INFERENCE_MODE: ${ELO_INFERENCE_MODE:-mock}
+      ELO_SYNTHETIC_ONLY_ACK: ${ELO_SYNTHETIC_ONLY_ACK:?Set true only after confirming synthetic-only fixtures}
+      RADEON_API_KEY: ${RADEON_API_KEY:-}
+      RADEON_MODEL: ${RADEON_MODEL:-DeepSeek-V4-Flash}
+    # First boot and each image update migrate only this stack's dedicated DB.
+    # One API replica only; migration failure prevents startup.
+    command: [sh, -ec, "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-proxy-headers"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [private, inference_egress]
+    labels:
+      traefik.enable: "false"
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  web:
+    image: ${ELO_WEB_IMAGE:?Set lowercase GHCR web image from the same approved SHA or digest}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [private, traefik]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: ${ELO_TRAEFIK_NETWORK:?Set existing Traefik network name}
+      traefik.http.routers.elo-demo.rule: "Host(`app.eloterapia.com.br`) && (Method(`GET`) || Method(`HEAD`))"
+      traefik.http.routers.elo-demo.entrypoints: ${ELO_TRAEFIK_ENTRYPOINT:?Set existing HTTPS entrypoint}
+      traefik.http.routers.elo-demo.tls: "true"
+      traefik.http.routers.elo-demo.tls.certresolver: ${ELO_TRAEFIK_CERTRESOLVER:?Set existing certificate resolver}
+      traefik.http.routers.elo-demo.service: elo-demo
+      traefik.http.routers.elo-demo.middlewares: elo-demo-auth
+      traefik.http.services.elo-demo.loadbalancer.server.port: "80"
+      traefik.http.middlewares.elo-demo-auth.basicauth.users: ${ELO_DEMO_BASIC_AUTH_USERS:?Set bcrypt htpasswd entry via private environment}
+      traefik.http.middlewares.elo-demo-auth.basicauth.removeheader: "true"
+
+volumes:
+  postgres_data:
+
+networks:
+  private:
+    internal: true
+  # AMD inference needs outbound HTTPS. No host ports or shared application network.
+  inference_egress: {}
+  traefik:
+    external: true
+    name: ${ELO_TRAEFIK_NETWORK:?Set existing Traefik network name}
