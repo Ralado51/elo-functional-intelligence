@@ -47,3 +47,11 @@ Record SHA, command, environment and actual output for backend tests, frontend t
 - Final combined package.json differs from packaging baseline: regenerate lockfile after feature integration and preserve npm test.
 
 - Container validation run39029252132 at PR23 initial commit 1e0a1fe succeeded: both Docker images, nginx syntax, synthetic 40-minute GET/POST and API IP-change recovery without restarting web. Latest PR23 605fcab restores exclusions and reduces token permissions; its CI39029295554 succeeded, container rerun39029295547 pending at this update. No registry image push was executed.
+
+## Consolidated release-contract update
+- Approved functional #21 and documentation #20/#24 are merged into main at 2e5b5e90ef2e77fe855f0bef1862b7594ad3b828. Redundant #19/#22 were closed by the orchestrator.
+- The current isolated packaging worker consolidates #18 e69b596, #23 605fcab and #25 c278ded in one main-target PR, retaining application tests and regenerating the full functional frontend lock. Root owns merges; the worker may not publish/deploy. Existing Builder branches remain untouched.
+- Unified artifact contract: API includes Alembic assets, UID10001; frontend artifact is **-frontend**, UID101, port8080, read-only root, temp/PID writes in /tmp, dynamic Docker DNS. Older **-web** artifacts do not satisfy the stack.
+- A separate manual main-only PostgreSQL16 mirror workflow takes an independently reviewed upstream digest, verifies version/platform and records the destination digest. No real artifacts/digests or registry publication are claimed.
+- PR and manual pre-publication validation both run synthetic Compose assertions plus the no-push hardened gateway smoke. Runtime CI results must be checked on the exact final commit. Local Compose v2.40.3 static checks passed; Docker runtime is unavailable locally.
+- Select final reviewed application/packaging SHA and verify all three registry digests before seeking separate deployment authorization. Neither workflow presence nor green build certifies live AMD, Portainer migration orchestration, TLS or BasicAuth runtime behavior.

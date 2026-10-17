@@ -1,0 +1,20 @@
+name: Container validation
+on:
+  pull_request:
+    branches: [main, feat/demo-ghcr-pipeline, feat/portainer-gitops-demo, fix/pr18-container-validation]
+permissions:
+  contents: read
+jobs:
+  proxy-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Portainer contracts with synthetic inputs
+        run: python scripts/validate-portainer.py
+      - name: Build API image locally (no registry push)
+        run: docker build --tag elo-demo-api:smoke ./backend
+      - name: Build web image locally (no registry push)
+        run: docker build --tag elo-demo-web:smoke ./frontend
+      - name: Validate Nginx, synthetic GET/POST and changed API IP
+        run: bash scripts/proxy-smoke.sh
