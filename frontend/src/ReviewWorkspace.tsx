@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import SyntheticRegistrySetup from './SyntheticRegistrySetup';
 
 export type RegistryObservation = {
   id: string;
@@ -109,7 +110,7 @@ function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
       await onReviewed();
       setAuditOpen(true);
       setAuditRevision(value => value + 1);
-    } catch (e) { setError(String(e)); }
+    } catch (e) { setError(String(e).includes('Professional not found') ? 'Professional not found. Register or select a persisted synthetic professional in the setup above; an invented UUID cannot authorize review.' : String(e)); }
     finally { setBusy(false); }
   }
 
@@ -153,7 +154,7 @@ export default function ReviewWorkspace({ apiBase, sessionId, onReviewCompleted 
   }
 
   useEffect(() => {
-    setObservations([]); setLoaded(false); setError('');
+    setObservations([]); setLoaded(false); setError(''); setReviewerId('');
     if (!sessionId) return;
     let active = true;
     setLoading(true);
@@ -173,8 +174,10 @@ export default function ReviewWorkspace({ apiBase, sessionId, onReviewCompleted 
     <p className="muted">Auditable review of individual observations. Professional IDs are synthetic references, not authentication. Never enter real patient data.</p>
     <p className="muted">Session-text approval does not approve individual observations. Pending observations remain reviewable after the session is approved.</p>
     {!sessionId ? <p className="muted">Select a session from case history to review its observations.</p> : <>
+      <SyntheticRegistrySetup key={apiBase + ':' + sessionId} apiBase={apiBase} sessionId={sessionId} onReviewerSelected={setReviewerId} onLinked={onReviewCompleted}/>
       <label htmlFor="reviewer-id">Registered synthetic professional ID</label>
       <input id="reviewer-id" value={reviewerId} onChange={e => setReviewerId(e.target.value)} placeholder="Professional UUID from /registry/professionals"/>
+      <p className="muted">Selected registered IDs appear here. You may also paste an existing ID; the API still requires a persisted professional and a linked synthetic patient in the same organization.</p>
       <div className="review-summary" aria-label="Review summary"><span><strong>{observations.length}</strong> observations</span><span className="pending-count"><strong>{pending}</strong> pending</span><span><strong>{accepted}</strong> approved or corrected</span><span><strong>{rejected}</strong> rejected</span></div>
       <button className="secondary" disabled={loading} onClick={() => void refresh().catch(e => setError(String(e)))}>Refresh observations</button>
       {loading && <p className="muted">Loading observations...</p>}
