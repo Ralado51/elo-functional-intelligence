@@ -1,8 +1,9 @@
-.git
-.env
-.env.*
 __pycache__
 .pytest_cache
+.env
+.env.*
+*.db
+*.sqlite*
+.git
 .venv
 data
-*.db
