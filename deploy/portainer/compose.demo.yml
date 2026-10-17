@@ -84,7 +84,12 @@ services:
       RADEON_API_KEY: ${RADEON_API_KEY:-}
       RADEON_MODEL: ${RADEON_MODEL:-DeepSeek-V4-Flash}
       RADEON_BASE_URL: https://developer.amd.com.cn/radeon/api/v1
-    networks: [application, database, api_egress]
+    networks:
+      application:
+        aliases:
+          - elo-functional-api
+      database: {}
+      api_egress: {}
     depends_on:
       postgres:
         condition: service_healthy
