@@ -56,6 +56,16 @@ def review_observation(observation_id: str, payload: ReviewInput):
         final_text = payload.reviewed_text if payload.decision == "correct" else (
             observation["observation_text"] if payload.decision == "approve" else None)
         final_domain = (payload.reviewed_domain or observation["functional_domain"]) if status != "rejected" else None
+        if payload.decision == "correct":
+            # Compare whitespace-normalized values without rewriting either the
+            # original evidence or the professional's meaningful correction.
+            normalized_text = " ".join(final_text.split())
+            normalized_domain = " ".join(final_domain.split())
+            if not normalized_text or len(normalized_domain) < 2:
+                raise HTTPException(422, "Correction requires nonblank text and a functional domain")
+            if (normalized_text == " ".join(observation["observation_text"].split())
+                    and normalized_domain == " ".join(observation["functional_domain"].split())):
+                raise HTTPException(422, "Correction must change the text or functional domain; approve unchanged observations instead")
         result = execute(conn, """UPDATE observations SET review_status=:status, reviewed_text=:text, reviewed_domain=:domain,
             reviewed_by=:reviewer, reviewed_at=:now WHERE id=:id AND review_status='pending'""",
             {"status": status, "text": final_text, "domain": final_domain, "reviewer": reviewer["id"], "now": now, "id": observation_id})

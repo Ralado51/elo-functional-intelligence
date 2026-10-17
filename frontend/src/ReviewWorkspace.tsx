@@ -26,13 +26,14 @@ type ReviewEvent = {
   created_at: string;
 };
 
-type Props = { apiBase: string; sessionId: string | null };
+type Props = { apiBase: string; sessionId: string | null; onReviewCompleted?: () => void };
 
-async function request<T>(apiBase: string, path: string, body?: unknown): Promise<T> {
-  const response = await fetch(apiBase + path, body === undefined ? undefined : {
+async function request<T>(apiBase: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(apiBase + path, body === undefined ? { signal } : {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal,
   });
   if (!response.ok) throw new Error('HTTP ' + response.status + ': ' + await response.text());
   return response.json() as Promise<T>;
@@ -53,20 +54,49 @@ function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
   const [error, setError] = useState('');
   const [auditBusy, setAuditBusy] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
+  const [auditError, setAuditError] = useState('');
+  const [auditRevision, setAuditRevision] = useState(0);
 
-  async function loadEvents() {
+  useEffect(() => {
+    if (!auditOpen) return;
+    const controller = new AbortController();
+    let active = true;
+    let timedOut = false;
     setAuditBusy(true);
-    setError('');
-    try { setEvents(await request<ReviewEvent[]>(apiBase, '/registry/observations/' + encodeURIComponent(observation.id) + '/review-events')); }
-    catch (e) { setError(String(e)); }
-    finally { setAuditBusy(false); }
-  }
+    setAuditError('');
+    setEvents(null);
+    // Bound both fetching headers and reading the response body. A stalled
+    // connection must not leave the audit history in a permanent loading state.
+    const timeout = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 15_000);
+    request<ReviewEvent[]>(apiBase, '/registry/observations/' + encodeURIComponent(observation.id) + '/review-events', undefined, controller.signal)
+      .then(result => { if (active) setEvents(result); })
+      .catch(e => { if (active) setAuditError(timedOut ? 'Audit history timed out. Please retry.' : 'Unable to load audit history: ' + String(e)); })
+      .finally(() => {
+        window.clearTimeout(timeout);
+        if (active) setAuditBusy(false);
+      });
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [apiBase, observation.id, observation.review_status, observation.reviewed_at, auditOpen, auditRevision]);
+
+  const normalize = (value: string) => value.trim().replace(/\s+/g, ' ');
+  const textChanged = normalize(correctedText) !== normalize(observation.observation_text);
+  const domainChanged = normalize(correctedDomain) !== normalize(observation.functional_domain);
+  const correctionError = !normalize(correctedText) ? 'Enter meaningful corrected text.' :
+    normalize(correctedDomain).length < 2 ? 'Enter a functional domain.' :
+    !textChanged && !domainChanged ? 'Change the text or functional domain, or approve unchanged.' :
+    textChanged && (normalize(correctedText).length < 12 || normalize(correctedText).split(' ').length < 3) ? 'Enter meaningful corrected text.' : '';
 
   async function submitReview() {
     setError('');
     if (!reviewerId.trim()) { setError('Enter a registered synthetic professional ID.'); return; }
-    if (decision === 'correct' && (correctedDomain.trim().length < 2 || correctedText.trim().length < 12 || correctedText.trim().split(/\s+/).length < 3)) { setError('Enter meaningful corrected text.'); return; }
-    if (decision === 'correct' && correctedDomain.trim().length < 2) { setError('Enter a functional domain.'); return; }
+    if (decision === 'correct' && correctionError) { setError(correctionError); return; }
     if (decision === 'reject' && !reason.trim()) { setError('Enter a rejection reason.'); return; }
     setBusy(true);
     try {
@@ -77,8 +107,8 @@ function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
         ...(decision === 'reject' ? { reason: reason.trim() } : {})
       });
       await onReviewed();
-      await loadEvents();
       setAuditOpen(true);
+      setAuditRevision(value => value + 1);
     } catch (e) { setError(String(e)); }
     finally { setBusy(false); }
   }
@@ -97,15 +127,18 @@ function ObservationCard({ observation, apiBase, reviewerId, onReviewed }: {
       </select>
       {decision === 'correct' && <><label htmlFor={'domain-' + observation.id}>Corrected functional domain</label><input id={'domain-' + observation.id} maxLength={80} value={correctedDomain} onChange={e => setCorrectedDomain(e.target.value)} disabled={busy}/><label htmlFor={'correction-' + observation.id}>Corrected text</label><textarea id={'correction-' + observation.id} rows={4} value={correctedText} onChange={e => setCorrectedText(e.target.value)} disabled={busy}/></>}
       {decision === 'reject' && <><label htmlFor={'reason-' + observation.id}>Required reason</label><textarea id={'reason-' + observation.id} rows={3} value={reason} onChange={e => setReason(e.target.value)} disabled={busy}/></>}
-      <button onClick={() => void submitReview()} disabled={busy || !reviewerId.trim() || (decision === 'correct' && (correctedText.trim().length < 12 || correctedText.trim().split(/\s+/).length < 3)) || (decision === 'reject' && !reason.trim())}>Confirm decision</button>
+      {decision === 'correct' && correctionError && <p className="muted">{correctionError}</p>}
+      <button onClick={() => void submitReview()} disabled={busy || !reviewerId.trim() || (decision === 'correct' && !!correctionError) || (decision === 'reject' && !reason.trim())}>Confirm decision</button>
     </div>}
-    <button className="secondary" aria-expanded={auditOpen} disabled={auditBusy} onClick={() => { if (auditOpen) setAuditOpen(false); else { setAuditOpen(true); if (!events) void loadEvents(); } }}>{auditBusy ? 'Loading...' : auditOpen ? 'Hide audit history' : 'View audit history'}</button>
-    {auditOpen && events && <div className="audit-log"><h4>Decision history</h4>{events.length ? events.map(event => <div key={event.id} className="audit-event"><strong>{event.decision}</strong> · {new Date(event.created_at).toLocaleString('en-US')}<p className="muted">Synthetic reviewer: {event.reviewer_id}</p>{event.previous_domain && <p>Original domain: {event.previous_domain}</p>}{event.reviewed_domain && <p>Reviewed domain: {event.reviewed_domain}</p>}{event.reason && <p>Reason: {event.reason}</p>}{event.reviewed_text && <p>Final text: {event.reviewed_text}</p>}</div>) : <p className="muted">No audit events recorded.</p>}</div>}
+    <button className="secondary" aria-expanded={auditOpen} onClick={() => setAuditOpen(value => !value)}>{auditOpen ? 'Hide audit history' : 'View audit history'}</button>
+    {auditOpen && auditBusy && <p role="status">Loading audit history...</p>}
+    {auditOpen && auditError && <div><p role="alert" className="error">{auditError}</p><button className="secondary" onClick={() => setAuditRevision(value => value + 1)}>Retry audit history</button></div>}
+    {auditOpen && !auditBusy && events && <div className="audit-log"><h4>Decision history</h4>{events.length ? events.map(event => <div key={event.id} className="audit-event"><strong>{event.decision}</strong> · {new Date(event.created_at).toLocaleString('en-US')}<p className="muted">Synthetic reviewer: {event.reviewer_id}</p>{event.previous_domain && <p>Original domain: {event.previous_domain}</p>}{event.reviewed_domain && <p>Reviewed domain: {event.reviewed_domain}</p>}{event.reason && <p>Reason: {event.reason}</p>}{event.reviewed_text && <p>Final text: {event.reviewed_text}</p>}</div>) : <p className="muted">No audit events recorded.</p>}</div>}
     {error && <p role="alert" className="error">{error}</p>}
   </article>;
 }
 
-export default function ReviewWorkspace({ apiBase, sessionId }: Props) {
+export default function ReviewWorkspace({ apiBase, sessionId, onReviewCompleted }: Props) {
   const [observations, setObservations] = useState<RegistryObservation[]>([]);
   const [reviewerId, setReviewerId] = useState('');
   const [error, setError] = useState('');
@@ -145,7 +178,7 @@ export default function ReviewWorkspace({ apiBase, sessionId }: Props) {
       <button className="secondary" disabled={loading} onClick={() => void refresh().catch(e => setError(String(e)))}>Refresh observations</button>
       {loading && <p className="muted">Loading observations...</p>}
       {loaded && !observations.length && <p className="muted">This session has no registered observations. Mock mode does not generate observations automatically.</p>}
-      {sortedObservations.map(o => <ObservationCard key={o.id} observation={o} apiBase={apiBase} reviewerId={reviewerId} onReviewed={refresh}/>)}
+      {sortedObservations.map(o => <ObservationCard key={o.id} observation={o} apiBase={apiBase} reviewerId={reviewerId} onReviewed={async () => { await refresh(); onReviewCompleted?.(); }}/>)}
       {error && <p role="alert" className="error">{error}</p>}
     </>}
   </section>;
