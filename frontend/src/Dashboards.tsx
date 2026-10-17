@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import './dashboards.css';
+import FunctionalProgress from './FunctionalProgress';
 
-export type Page = 'operations' | 'functional' | 'governance' | 'workspace';
-const pages: [Page, string][] = [['operations', 'Operations'], ['functional', 'Functional intelligence'], ['governance', 'AI governance'], ['workspace', 'Session workspace']];
+export type Page = 'operations' | 'progress' | 'functional' | 'governance' | 'workspace';
+const pages: [Page, string][] = [['operations', 'Operations'], ['progress', 'Functional progress'], ['functional', 'Functional intelligence'], ['governance', 'AI governance'], ['workspace', 'Session workspace']];
 type Counts = Record<string, number>;
 type Meta = { generated_at: string; scope: string };
 type Operations = Meta & { total_cases: number; total_sessions: number; total_observations: number; reviewed_observations: number; session_statuses: Counts; observation_statuses: Counts; review_completion_percent: number | null };
@@ -137,9 +138,10 @@ function GovernanceView({ apiBase, onEvidence }: { apiBase: string; onEvidence: 
 export default function Dashboards({ page, apiBase, onOpenSession }: { page: Exclude<Page, 'workspace'>; apiBase: string; onOpenSession: (id: string) => void }) {
   const [evidence, setEvidence] = useState<{ sessionId: string; observationId?: string } | null>(null);
   const onEvidence = (sessionId: string, observationId?: string) => setEvidence({ sessionId, observationId });
-  const titles = { operations: ['Operations dashboard', 'A clear view of the review queue.'], functional: ['Functional intelligence', 'Follow each observation back to its evidence.'], governance: ['AI governance', 'Accountability at every human decision.'] };
+  const titles = { operations: ['Operations dashboard', 'A clear view of the review queue.'], progress: ['Functional progress', 'What the person did, in the words recorded.'], functional: ['Functional intelligence', 'Follow each observation back to its evidence.'], governance: ['AI governance', 'Accountability at every human decision.'] };
   return <div className="dashboard"><section className="dashboard-hero"><p className="eyebrow">ELO INTELLIGENCE / SYNTHETIC RESEARCH DATA</p><h1>{titles[page][0]}</h1><p>{titles[page][1]}</p><span className="workspace-mode">Read-only analytics · persisted application records</span></section>
     {page === 'operations' && <OperationsView apiBase={apiBase}/>} {page === 'functional' && <FunctionalView apiBase={apiBase} onEvidence={onEvidence}/>} {page === 'governance' && <GovernanceView apiBase={apiBase} onEvidence={onEvidence}/>}
+    {page === 'progress' && <FunctionalProgress apiBase={apiBase} onEvidence={onEvidence}/>}
     {evidence && <EvidencePanel key={evidence.sessionId + evidence.observationId} apiBase={apiBase} {...evidence} onClose={() => setEvidence(null)} onOpenSession={onOpenSession}/>}
     <p className="dashboard-disclaimer">Synthetic data only. Descriptive research prototype. No diagnosis, clinical progress inference, automatic approval or signed clinical report.</p>
   </div>;
