@@ -18,7 +18,9 @@ it('provides clear navigation for all three dashboards and the existing workspac
   const change = vi.fn();
   render(<DashboardNavigation page="operations" onChange={change}/>);
   const nav = screen.getByRole('navigation', { name: 'Application navigation' });
-  expect(within(nav).getAllByRole('button')).toHaveLength(4);
+  expect(within(nav).getAllByRole('button')).toHaveLength(5);
+  fireEvent.click(screen.getByRole('button', { name: 'Functional progress' }));
+  expect(change).toHaveBeenCalledWith('progress');
   expect(screen.getByRole('button', { name: 'Operations' }).getAttribute('aria-current')).toBe('page');
   fireEvent.click(screen.getByRole('button', { name: 'Functional intelligence' }));
   expect(change).toHaveBeenCalledWith('functional');
