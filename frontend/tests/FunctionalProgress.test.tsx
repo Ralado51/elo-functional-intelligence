@@ -30,6 +30,7 @@ it('shows literal approximate participation wording, recorded duration and audit
   expect(screen.getByRole('status')).toBeTruthy();
   await flush();
   expect(screen.getAllByText(account).length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByText('Source observations & human decisions', { exact: false }));
   expect(screen.getByRole('heading', { name: '40-minute session' })).toBeTruthy();
   expect(screen.getByText(/Audit event references: audit-attention/)).toBeTruthy();
   expect(screen.getByText(/One-session evidence, not a progress score/)).toBeTruthy();
@@ -119,11 +120,12 @@ it('bounds stalled requests and cancels them on unmount', async () => {
 it('links visual markers to exact reviewed evidence and labels the original illustration', async () => {
   setup(); await flush();
   const overview = screen.getByRole('region', { name: 'Documented activity overview' });
-  expect(overview.textContent).toContain(account);
+  expect(overview.textContent).toContain('Approximately');
+  expect(overview.textContent).toContain('8');
   expect(overview.textContent).toContain('not clinical performance scores');
   expect(overview.querySelector('a')?.getAttribute('href')).toBe('#functional-record-obs-attention');
   expect(screen.getByRole('img', { name: /fictional child/ })).toBeTruthy();
-  expect(overview.textContent).toContain('not observed event order');
+  expect(overview.textContent).toContain('not patient imagery');
   expect(overview.textContent).not.toContain('70%');
 });
 
@@ -142,7 +144,25 @@ it('retains corrected negative wording in the visual marker without extracting p
   setup({ ...data, sessions: [{ ...measured, evidence: [{ ...evidence, review_status: 'corrected', reviewed_text: negative }] }] });
   await flush();
   const overview = screen.getByRole('region', { name: 'Documented activity overview' });
-  expect(overview.textContent).toContain(negative);
+  expect(overview.textContent).toContain('Measurement unavailable');
+  expect(screen.getAllByText(negative).length).toBeGreaterThan(0);
   expect(overview.textContent).toContain('Reviewed correction');
   expect(overview.textContent).not.toContain('8 minutes');
+});
+
+it('opens expandable exact evidence from a compact measurement marker', async () => {
+  setup(); await flush();
+  const details = document.querySelector('.evidence-details') as HTMLDetailsElement;
+  expect(details.open).toBe(false);
+  fireEvent.click(screen.getByRole('region', { name: 'Documented activity overview' }).querySelector('a')!);
+  expect(details.open).toBe(true);
+  expect(details.textContent).toContain(account);
+  expect(details.textContent).toContain('audit-attention');
+});
+it('does not choose a numeric highlight when a topic has multiple reviewed accounts', async () => {
+  setup({ ...data, sessions: [{ ...measured, evidence: [evidence, { ...evidence, observation_id: 'second-account' }] }] });
+  await flush();
+  const overview = screen.getByRole('region', { name: 'Documented activity overview' });
+  expect(overview.querySelector('.marker-attention .measurement-value')).toBeNull();
+  expect(overview.querySelector('.marker-attention')?.textContent).toContain('Measurement unavailable');
 });
