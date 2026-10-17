@@ -38,3 +38,10 @@ Synthetic pediatric occupational therapy data only; sessions are 40 minutes. No 
 
 ## Acceptance evidence
 Record SHA, command, environment and actual output for backend tests, frontend tests/build, Docker builds, proxy GET/POST/query handling, API recreation, migration upgrade and immutable original evidence/single decision audit regression. Mark unexecuted checks pending. Live AMD validation must use synthetic input with acknowledgment, preserve pending review state, record reviewer decision/audit, and produce only a labeled draft. Never invent latency, costs, tokens or success measurements.
+
+## Execution update
+- PR20 owns this handoff; PR21 is a main-target snapshot of PR19/dashboard, without branch merges.
+- Independent detached-worktree tests at 0e47e12 executed: 85 backend tests passed (one existing deprecation warning), 26 frontend tests passed, production TypeScript/Vite build passed. CI39029221235 also succeeded. These supersede the earlier author-claims-only caveat for those three checks only.
+- PR22 proposes protected standalone Portainer stack. YAML/structural checks passed; Compose/runtime/external checks remain pending. Audience is authenticated read-only; operator writes require private access.
+- PR23 targets PR18 branch and adds real lockfile/npm ci and no-push container/proxy/DNS-change validation. Container Actions are pending at update time; never treat workflow presence as passed execution.
+- Final combined package.json differs from packaging baseline: regenerate lockfile after feature integration and preserve npm test.
