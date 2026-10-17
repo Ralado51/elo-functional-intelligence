@@ -38,9 +38,11 @@ function ParticipationOverview({ session }: { session: Session }) {
     <div className="activity-stage"><ActivityIllustration/>
       <div className="activity-markers">{topics.slice(0, 4).map(([key, title], index) => {
         const { record, metric } = metricFor(session, key);
+        const narratives = session.evidence.filter(item => item.topics.includes(key));
         return <section className={'activity-marker marker-' + key} key={key}>
           <span className="marker-index">0{index + 1}</span><h3>{title}</h3>
-          {metric ? <><small>{metric.qualifier}</small><strong className="measurement-value">{metric.value}{metric.denominator !== undefined && <span> / {metric.denominator}</span>}</strong><span className="measurement-unit">{metric.label}</span></> : <><strong className="measurement-unavailable">—</strong><span className="measurement-unit">Measurement unavailable</span></>}
+          {metric ? <><small>{metric.qualifier}</small><strong className="measurement-value">{metric.value}{metric.denominator !== undefined && <span> / {metric.denominator}</span>}</strong><span className="measurement-unit">{metric.label}</span></> : <><strong className="measurement-unavailable">—</strong><span className="measurement-unit">Not structurally measurable</span></>}
+          {!metric && narratives.map(item => <p className="unstructured-account" key={item.observation_id}>{item.reviewed_text}</p>)}
           {record && <a href={'#functional-record-' + record.observation_id} onClick={event => revealSource(event, record.observation_id)}>Reviewed {record.review_status === 'corrected' ? 'correction' : 'approval'} ↗</a>}
         </section>;
       })}</div>
@@ -52,23 +54,12 @@ function AttemptsOverview({ session }: { session: Session }) {
   const fraction = metric?.denominator ? metric.value / metric.denominator : null;
   return <section className="attempts-overview" aria-label="Documented independent attempts">
     <h2>Independent attempts</h2><div className="attempts-ring"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="49" fill="none" stroke="#e8efed" strokeWidth="11"/>{fraction !== null && <circle cx="60" cy="60" r="49" fill="none" stroke="#087f80" strokeWidth="11" pathLength="100" strokeDasharray={`${fraction * 100} 100`} transform="rotate(-90 60 60)"/>}</svg><div><strong>{fraction === null ? '—' : metric?.value}<small>{fraction === null ? '' : ' / ' + metric?.denominator}</small></strong><span>{fraction === null ? 'Unavailable' : 'documented'}</span></div></div>
-    <p>{fraction === null ? 'No supported reviewed trial count.' : 'Independent attempts / recorded attempts. Remaining attempts have no independence classification here.'}</p>
+    <p>{fraction === null ? record ? 'Not structurally measurable; see the original reviewed account.' : 'No reviewed activity evidence; ability unknown.' : metric?.qualifier.includes('physical assistance') ? 'Both hands used. Minimal physical assistance for the remaining attempts.' : 'Independent attempts / recorded attempts. Remaining attempts have no independence classification here.'}</p>
     {record && <a href={'#functional-record-' + record.observation_id} onClick={event => revealSource(event, record.observation_id)}>Source & human decision ↗</a>}
   </section>;
 }
-function SessionEvidenceChart({ sessions, selectedId, onSelect }: { sessions: Session[]; selectedId: string; onSelect: (id: string) => void }) {
-  const max = Math.max(1, ...sessions.flatMap(session => topics.slice(0, 4).map(([key]) => session.evidence.filter(record => record.topics.includes(key)).length)));
-  return <section className="session-evidence-chart" aria-label="Session evidence comparison">
-    <div className="chart-heading"><div><h2>Recorded evidence by session</h2><p>Reviewed observation counts · no outcome trend</p></div><span className="chart-unit">0–{max} records / domain</span></div>
-    <div className="bar-chart"><div className="bar-axis"><span>{max}</span><span>0</span></div><div className="bar-columns">{sessions.map((session, index) => <button key={session.id} className="chart-session" aria-pressed={session.id === selectedId} aria-label={'Explore recorded session ' + (index + 1)} onClick={() => onSelect(session.id)}>
-      <div className="session-bars">{topics.slice(0, 4).map(([key, title]) => {
-        const count = session.evidence.filter(record => record.topics.includes(key)).length;
-        return <span key={key} className={'progress-bar-track bar-' + key} aria-label={title + ': ' + count + ' reviewed observations'}><span className="bar-fill" style={{ height: (count / max * 100) + '%' }}/>{count > 0 && <small style={{ top: 'auto', bottom: (count / max * 100) + '%' }}>{count}</small>}</span>;
-      })}</div><strong>{String(index + 1).padStart(2, '0')}</strong><small>{!session.recorded_observations ? 'No observations' : !session.evidence.length ? 'No reviewed evidence' : 'Reviewed evidence'}</small>
-    </button>)}</div></div>
-    <div className="chart-legend">{topics.slice(0, 4).map(([key, title]) => <span key={key}><i className={'legend-' + key}/>{title}</span>)}</div>
-    <p className="activity-footnote">Newest records first. Empty bars = no reviewed account. Counts describe documentation, not ability or improvement.</p>
-  </section>;
+function SessionPicker({ sessions, selectedId, onSelect }: { sessions: Session[]; selectedId: string; onSelect: (id: string) => void }) {
+  return <section className="snapshot-picker" aria-label="Session snapshot selection"><h2>Select a session</h2><p>Separate activity snapshots · no longitudinal comparison</p><div>{sessions.map((session, index) => <button key={session.id} aria-pressed={session.id === selectedId} aria-label={'Explore recorded session ' + (index + 1)} onClick={() => onSelect(session.id)}><strong>Session {index + 1}</strong><span>{new Date(session.created_at).toLocaleString('en-US')}</span><small>{!session.recorded_observations ? 'No observations · ability unknown' : session.evidence.length ? 'Reviewed narrative available' : 'No verified reviewed narrative'}</small></button>)}</div></section>;
 }
 
 export default function FunctionalProgress({ apiBase, onEvidence }: {
@@ -117,10 +108,10 @@ export default function FunctionalProgress({ apiBase, onEvidence }: {
     {data?.case && <>
       <section className="progress-summary"><div><h2>Case {data.case.id}</h2><span>{data.sessions.length} of {data.total_sessions} session records · latest {data.limit} maximum</span></div><span>{selected ? selected.duration_minutes + '-minute selected session' : 'No session selected'}</span></section>
       {!data.sessions.length && <section className="panel"><h2>No session records for this case</h2><p>No functional activity or measurements can be reported.</p></section>}
-      {!!data.sessions.length && <div className="analytics-strip">{selected && <AttemptsOverview session={selected}/>}<SessionEvidenceChart sessions={data.sessions} selectedId={sessionId} onSelect={setSessionId}/></div>}
+      {!!data.sessions.length && <div className="analytics-strip">{selected && <AttemptsOverview session={selected}/>}<SessionPicker sessions={data.sessions} selectedId={sessionId} onSelect={setSessionId}/></div>}
       {!!selected?.evidence.length && <ParticipationOverview session={selected}/>}
       <details className="evidence-details" open={!selected?.evidence.length}><summary>Source observations & human decisions <span>Exact reviewed text · excerpts · reviewer & audit references</span></summary>
-      <p className="muted">Synthetic patient reference: {data.case.patient_id || 'Not linked; case-level records only'} · {data.sessions.filter(session => session.evidence.length).length} shown sessions with reviewed functional evidence</p>
+      <p className="muted">Synthetic patient reference: {data.case.patient_id || 'Not linked; case-level records only'}</p>
       {!!data.sessions.length && <div className="progress-layout">
         <aside className="panel progress-timeline" aria-label="Session records"><h2>Session records</h2><p className="muted">Record timestamps, not a verified longitudinal activity timeline.</p>{data.sessions.map(session => <button key={session.id} aria-pressed={session.id === sessionId} onClick={() => setSessionId(session.id)}>
           <strong>Recorded {new Date(session.created_at).toLocaleString('en-US')}</strong><span>{session.duration_minutes} minutes · session duration</span><small>{session.evidence.length ? 'Reviewed functional evidence available' : session.recorded_observations ? 'No verified reviewed evidence available' : 'No observations recorded'}</small><small>{session.id}</small>

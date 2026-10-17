@@ -1,55 +1,58 @@
-# Visual Functional Dashboard 2.0 — PR #34 revision
+# Functional Progress — selected-session activity snapshot
 
-## Revised composition
+## Review-blocker correction in existing PR #34
 
-This revision updates PR #34's existing branch, not a replacement PR. A compact analytics strip shows a documented independent-attempt ratio and grouped domain bars per session. The central fictional-child SVG sits between four concise source-linked highlights. Full reviewed narratives, session timestamps, sources, assistance, patient/reviewer references and audit IDs remain in expandable details below. Other dashboards, review, registry and documentation components are unchanged.
+Removed the grouped chart of approved-observation counts from Functional Progress. Documentation volume is a staff/administrative concept and is not a child-participation measure. Existing Operations/Governance implementations are unchanged; no duplicate administrative chart is added here. The primary view now has one consistent measurement scope: the **selected session only**. Session buttons navigate separate snapshots, not a longitudinal comparison. A session with no observations explicitly says **ability unknown**, never zero ability.
 
-The complete analytics strip, central illustration and highlights fit together at **1440 × 900** in the local browser capture. At **390px** the charts and activity overview stack; session bars scroll horizontally when needed. Keyboard-operable session buttons and native evidence details retain focus indicators.
+The original fictional-child SVG remains central, with prompts, approximate attention duration, documented independent numerator/denominator, and bounded transition with guidance. The ring depicts the selected session's documented attempt fraction, not a clinical score, achievement percentage or improvement. Full reviewed wording, original excerpts, assistance, reviewer and human-decision/audit references remain in expandable details, linked from each marker and the ring.
 
-## Evidence mapping and conservative projection
+## Exact original OT-001 wording
 
-The existing read-only API admits only accepted records with matching source and human audit evidence. The frontend does not write measurements or change this API.
+The regression fixture [ot001-original.json](../frontend/tests/fixtures/ot001-original.json) preserves the four user-supplied reviewed narratives verbatim:
 
-| Visual | Input and meaning |
-| --- | --- |
-| Attempts ring | Explicit independent numerator / recorded attempts denominator from a supported full reviewed motor sentence. The remainder is not labeled failed, dependent or missed; no percentage or clinical score is presented. |
-| Initiation | Supported complete reviewed account states a count of verbal prompts. |
-| Attention | Supported complete reviewed account explicitly says approximately a number of minutes; the Approximate qualifier is retained. |
-| Transition | Supported complete reviewed account says within a number of minutes with verbal guidance; both bound and support are retained. |
-| Grouped bars | Count of eligible reviewed observations per domain/topic in each session, not activity performance. Empty or unreviewed sessions remain explicit. No interpolated curve or improvement claim. |
-| Child | Original handwritten conceptual SVG, not patient imagery, movement analysis or reconstruction of this session. |
+1. “Required three verbal prompts to begin the block-fitting activity”
+2. “Maintained attention for approximately 8 minutes during the block-fitting task”
+3. “Used both hands to manipulate blocks and completed 7 of 10 fitting attempts independently, with minimal physical assistance for the remaining attempts.”
+4. “Hesitated during transition to a second activity but responded to verbal guidance and completed the transition within 2 minutes.”
 
-[Projection rules](../frontend/src/documentedMeasurements.ts) match the **whole** reviewed sentence against a deliberately small English template set; number words zero–twelve and integer numerals are supported. No default clinical quantities are embedded in application display logic. An unrecognized sentence, negative/uncertain statement, added caveat, unsupported range, impossible denominator or multiple records in one topic produces **Measurement unavailable**, with the full evidence still accessible. This is a conservative presentation projection, not general clinical NLP, structured measurement storage or independent validation that a value was measured correctly. Unsupported languages/phrasing stay narrative; no value is fabricated to fill a card. App case selection remains dynamic, not OT-001-only.
+These yield **3 verbal prompts**, **approximately 8 minutes**, **7 / 10 independent attempts**, and **within 2 minutes**. Motor qualifiers preserve both hands and minimal physical assistance for remaining attempts. Transition qualifiers preserve hesitation and verbal guidance. Neither assistance nor approximation is discarded. Exact narratives are available through the source links; numeric labels are presentation projections, not replacements for reviewed records.
 
-Each highlight links to its exact observation card and expands the source section. The card retains human-reviewed wording, verbatim original source, approval/correction, reviewer ID, time and audit-event IDs. The existing trace action opens the source/decision inspector. Corrections remain authoritative; source wording is shown separately. Sessions are newest-record-first, not a verified occurrence-time sequence. One observation can appear in multiple topic counts; bars do not imply mutually exclusive measurements.
+[Projection rules](../frontend/src/documentedMeasurements.ts) add anchored, whole-sentence forms for these original descriptions. Required clauses remain mandatory. There is no generic search for a number near a clinical keyword: prefixes, suffix caveats, negation, uncertainty, unsupported ranges and changed assistance invalidate the projection. Existing supported full-sentence forms remain compatible. Multiple records in one topic are not silently reduced to one measurement.
 
-## Before/after evidence
+If a value cannot be reliably projected, the card shows the **original reviewed narrative** and **Not structurally measurable**. No zero, guessed value or fabricated clinical conclusion is substituted. Unknown or unsupported languages remain narrative. The existing backend source/audit integrity gate is unchanged; a textual match does not independently establish measurement correctness or clinical validity.
 
-All screenshots use existing local persisted synthetic OT-001 fixture records. No production data, AMD calls, reset, automatic seed or record replacement occurred.
+## Tested before/after with identical original-wording records
 
-- **Before this revision:** [1440px desktop](visual-dashboard-evidence/revision-before-desktop.png), [390px mobile](visual-dashboard-evidence/revision-before-mobile.png). These preserve the prior PR #34 captures.
-- **After:** [Full desktop](visual-dashboard-evidence/revised-desktop.png), [Full mobile](visual-dashboard-evidence/revised-mobile.png).
-- **First viewport:** [1440 × 900 analytics composition](visual-dashboard-evidence/revised-desktop-fold.png).
-- **Close-ups:** [Charts](visual-dashboard-evidence/revised-charts-closeup.png), [central activity](visual-dashboard-evidence/revised-activity-closeup.png), [mobile activity](visual-dashboard-evidence/revised-mobile-closeup.png).
-- **Missing evidence:** [Empty session](visual-dashboard-evidence/revised-empty.png), [qualitative-only session](visual-dashboard-evidence/revised-qualitative.png).
+A new disposable local database was explicitly prepared for this regression, using the exact reviewed descriptions above and explicit synthetic API approvals. For these local fixtures only, session notes/source excerpts are the supplied sentences; this is **not an export or independent verification of original production notes/excerpts**. Existing demo/local fixture records were not rewritten, reset, replaced or re-extracted. No provider request was made.
 
-Original baseline and first-iteration captures are preserved in the evidence directory for historical comparison; they do not represent this revision.
+The previous `14c085d` frontend was served from a temporary read-only source copy. Before and after views read the **same persisted fixture database**. The browser asserted that the old revision failed all four numeric projections and that the corrected revision displays all four values/qualifiers. Observation records were compared before/after browser navigation and were unchanged; each retains one explicit approval audit event.
 
-## Executed validation
+| Evidence | Before at `14c085d` | After correction |
+| --- | --- | --- |
+| Full desktop, 1440px | [Original wording before](visual-dashboard-evidence/original-wording-before-desktop.png) | [Original wording after](visual-dashboard-evidence/original-wording-after-desktop.png) |
+| Full mobile, 390px | [Original wording before](visual-dashboard-evidence/original-wording-before-mobile.png) | [Original wording after](visual-dashboard-evidence/original-wording-after-mobile.png) |
 
-- Frontend: **49 tests passed** across six files; TypeScript/Vite production build passed.
-- Complete backend suite: **95 passed**, one existing Starlette/httpx TestClient deprecation warning. No backend change.
-- Regression coverage: exact templates and qualifiers, denominator validation, negative/uncertain/range/caveated wording, qualitative absence, ambiguous multiple accounts, marker-to-expanded-source navigation, session selection and no evidence carryover, existing loading/error/retry/cancellation behavior.
-- Chromium: explicit 3 prompts, approximately 8 minutes, 7/10 independent attempts and within 2 minutes with verbal guidance from the selected persisted records; ring and grouped bars; first-viewport fit at 1440×900; source/audit expansion; empty/qualitative sessions; no page overflow at 390/768/1440px; no runtime errors, POSTs or inference requests.
-- `git diff --check` passed. No inference, auth, infrastructure, database, dependency or publication-workflow changes. No deployment/runtime image claim is made.
+- [Updated first viewport, 1440×900](visual-dashboard-evidence/original-wording-first-viewport.png)
+- [Activity close-up](visual-dashboard-evidence/original-wording-activity-closeup.png) / [mobile close-up](visual-dashboard-evidence/original-wording-mobile-closeup.png)
+- [Exact reviewed text, source and audit inspector](visual-dashboard-evidence/original-wording-source-audit.png)
+- [Empty session: no measurement carryover](visual-dashboard-evidence/original-wording-empty.png)
 
-Commands: frontend `npm test` and `npm run build`; backend `PYTHONPATH=. .venv/bin/python -m pytest -q`. Product tests ran locally; latest GitHub CI is a separate check on the PR.
+Earlier screenshots remain historical and do not represent this correction. In particular, earlier simplified-sentence fixtures and administrative chart captures are not evidence of correct projection of the original descriptions.
 
-## Manual visual review and rollback
+## Executed verification
 
-1. Open Functional progress with existing local synthetic records; select OT-001 if available. At 1440×900 verify chart strip, central illustration and compact highlights are visible together. Check the Approximate/Within qualifiers and ratio denominator.
-2. Follow each evidence link; confirm details expand with exact text, excerpt, reviewer and audit IDs, then use the existing trace inspector.
-3. Select an empty, qualitative-only or different session. Counts/measurements must not carry over. Inspect unsupported wording through details. At 390px verify readable stacked cards and usable chart scrolling.
-4. Revisit Operations, Functional Intelligence, Governance and Session Workspace. They retain existing implementations. No live extraction is needed for review.
+- Frontend: **51 tests passed** across six files; TypeScript/Vite production build passed.
+- Complete backend suite: **95 passed**, one existing Starlette/httpx TestClient deprecation warning. Backend implementation unchanged.
+- New regression cases cover all four exact originals, original assistance/hesitation qualifiers, refusal of negation/uncertainty/caveats or changed support wording, no documentation-count chart, source links, and empty-session no carryover.
+- Chromium before/after: old revision fails four projections; corrected snapshot has all four values/qualifiers, exact source/audit links, no count chart, no empty-session carryover, full composition above fold at 1440×900, no page overflow at 390/768/1440px, no runtime errors or POST/extraction/provider requests. Persisted observations remain unchanged.
+- `git diff --check` passed. No inference, schema, database reset, dependency, authentication, infrastructure or publication workflow changes.
 
-Frontend assets only; no new schema, runtime service or API contract. Publication/deployment require separate explicit authorization. An authorized rollback restores the previously approved frontend image digest/configuration, preserving API/PostgreSQL digests and every record/audit event. Obtain actual approved digests from operator records; never reset the database or re-extract observations. No merge, image publication, production modification, deployment or submission is performed by this PR.
+Commands: frontend `npm test`, `npm run build`; backend `PYTHONPATH=. .venv/bin/python -m pytest -q`. These are local results, not a fresh production certification or a claim about pending PR CI.
+
+## Manual review and limitations
+
+Select a synthetic case/session and compare each highlight to its exact reviewed narrative. Follow the marker/ring links, verify source, approval, reviewer and audit references, then inspect the original decision through the trace action. Select the empty session: the ring must show unavailable, with ability unknown and no carried-over values. Confirm unsupported wording remains narrative and not structurally measurable. Review desktop and mobile captures, then revisit the unchanged Operations, Functional Intelligence, Governance and Session Workspace.
+
+No longitudinal comparability, trend, diagnosis, clinical score or improvement claim is established. Session timestamps are record-entry times. Topic grouping remains heuristic and the case/session list bounded. Synthetic reviewer IDs are references, not professional authentication. Only local test evidence was accessed. Clinical privacy/consent/authorization and real-life longitudinal measurement design remain outside scope.
+
+Frontend assets only, existing read-only API contract unchanged. No merge, image publication, deployment, production data modification, new AMD inference or submission. If later authorized, rollback restores the previously approved frontend digest/configuration, preserving API/PostgreSQL images and all records/audit events. Actual approved digests must come from secure operator records; never reset data or re-extract observations for rollback. Stop for renewed human review.

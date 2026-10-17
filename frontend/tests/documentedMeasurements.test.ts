@@ -1,3 +1,4 @@
+import originals from './fixtures/ot001-original.json';
 import { expect, it } from 'vitest';
 import { documentedMeasurement as metric } from '../src/documentedMeasurements';
 
@@ -12,4 +13,16 @@ it('does not strip negation, uncertainty, unsupported ranges, or correction cont
   expect(metric('motor', 'Completed 11 independent attempts out of 10.')).toBeNull();
   expect(metric('motor', 'Completed 7 independent attempts out of 0.')).toBeNull();
   expect(metric('attention', 'Attention was supported with visual cues.')).toBeNull();
+});
+
+it('supports all exact original OT-001 reviewed wordings, including original assistance and bounds', () => {
+  expect(originals.map(item => metric(item.topic, item.text)?.value)).toEqual([3,8,7,2]);
+  expect(metric('motor', originals[2].text)).toMatchObject({ denominator: 10, qualifier: 'Both hands · minimal physical assistance for remaining attempts' });
+  expect(metric('transitions', originals[3].text)?.qualifier).toContain('hesitation');
+  for (const item of originals) {
+    expect(metric(item.topic, 'Did not ' + item.text)).toBeNull();
+    expect(metric(item.topic, item.text + ' This account was disputed.')).toBeNull();
+    expect(metric(item.topic, item.text.replace(/^(Required|Maintained|Used|Hesitated)/, 'May have $1'))).toBeNull();
+  }
+  expect(metric('motor', originals[2].text.replace('minimal physical assistance', 'no physical assistance'))).toBeNull();
 });

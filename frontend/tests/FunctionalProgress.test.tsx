@@ -1,3 +1,4 @@
+import originalAccounts from './fixtures/ot001-original.json';
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -131,7 +132,7 @@ it('links visual markers to exact reviewed evidence and labels the original illu
 
 it('selects empty sessions from the evidence matrix without illustrative measurement carryover', async () => {
   setup(); await flush();
-  expect(screen.getByRole('region', { name: 'Session evidence comparison' })).toBeTruthy();
+  expect(screen.getByRole('region', { name: 'Session snapshot selection' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Explore recorded session 1' }).getAttribute('aria-pressed')).toBe('true');
   fireEvent.click(screen.getByRole('button', { name: 'Explore recorded session 2' }));
   expect(screen.queryByRole('region', { name: 'Documented activity overview' })).toBeNull();
@@ -144,7 +145,7 @@ it('retains corrected negative wording in the visual marker without extracting p
   setup({ ...data, sessions: [{ ...measured, evidence: [{ ...evidence, review_status: 'corrected', reviewed_text: negative }] }] });
   await flush();
   const overview = screen.getByRole('region', { name: 'Documented activity overview' });
-  expect(overview.textContent).toContain('Measurement unavailable');
+  expect(overview.textContent).toContain('Not structurally measurable');
   expect(screen.getAllByText(negative).length).toBeGreaterThan(0);
   expect(overview.textContent).toContain('Reviewed correction');
   expect(overview.textContent).not.toContain('8 minutes');
@@ -164,5 +165,21 @@ it('does not choose a numeric highlight when a topic has multiple reviewed accou
   await flush();
   const overview = screen.getByRole('region', { name: 'Documented activity overview' });
   expect(overview.querySelector('.marker-attention .measurement-value')).toBeNull();
-  expect(overview.querySelector('.marker-attention')?.textContent).toContain('Measurement unavailable');
+  expect(overview.querySelector('.marker-attention')?.textContent).toContain('Not structurally measurable');
+});
+
+it('projects all four exact original OT-001 narratives with assistance, source links and no count chart', async () => {
+  const originals = originalAccounts.map((item, index) => ({ ...evidence, observation_id: 'original-' + index, domain: item.domain, original_text: item.text, reviewed_text: item.text, source_excerpt: item.text, topics: [item.topic] }));
+  setup({ ...data, sessions: [{ ...measured, evidence: originals }, empty] }); await flush();
+  const overview = screen.getByRole('region', { name: 'Documented activity overview' });
+  for (const [topic, value] of [['initiation','3'],['attention','8'],['motor','7 / 10'],['transitions','2']]) expect(overview.querySelector('.marker-' + topic + ' .measurement-value')?.textContent).toBe(value);
+  expect(overview.textContent).toContain('minimal physical assistance for remaining attempts');
+  expect(overview.textContent).toContain('hesitation recorded');
+  expect(screen.queryByRole('region', { name: 'Session evidence comparison' })).toBeNull();
+  expect(document.querySelector('.session-bars')).toBeNull();
+  for (const account of originalAccounts) expect(screen.getAllByText(account.text).length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole('button', { name: 'Explore recorded session 2' }));
+  expect(screen.queryByRole('region', { name: 'Documented activity overview' })).toBeNull();
+  expect(document.querySelector('.measurement-value')).toBeNull();
+  expect(screen.getByRole('region', { name: 'Documented independent attempts' }).textContent).not.toContain('7');
 });
