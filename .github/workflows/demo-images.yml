@@ -4,7 +4,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   validate:
@@ -27,6 +26,9 @@ jobs:
           push: false
           tags: elo-demo-web:smoke
   publish:
+    permissions:
+      contents: read
+      packages: write
     if: github.ref == 'refs/heads/main'
     needs: validate
     runs-on: ubuntu-latest
