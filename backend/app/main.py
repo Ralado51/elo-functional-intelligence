@@ -12,11 +12,13 @@ from sqlalchemy.exc import IntegrityError
 from app.database import db, one, all_rows, execute, database_url
 from app.registry import router as registry_router
 from app.review import router as review_router
+from app.dashboards import router as dashboards_router
 from app.amd_inference import AMDInferenceError, extract_candidates
 
 app = FastAPI(title="Elo Functional Intelligence API", version="0.3.0")
 app.include_router(registry_router)
 app.include_router(review_router)
+app.include_router(dashboards_router)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 
 class CaseInput(BaseModel):
