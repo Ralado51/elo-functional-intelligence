@@ -45,3 +45,5 @@ Record SHA, command, environment and actual output for backend tests, frontend t
 - PR22 proposes protected standalone Portainer stack. YAML/structural checks passed; Compose/runtime/external checks remain pending. Audience is authenticated read-only; operator writes require private access.
 - PR23 targets PR18 branch and adds real lockfile/npm ci and no-push container/proxy/DNS-change validation. Container Actions are pending at update time; never treat workflow presence as passed execution.
 - Final combined package.json differs from packaging baseline: regenerate lockfile after feature integration and preserve npm test.
+
+- Container validation run39029252132 at PR23 initial commit 1e0a1fe succeeded: both Docker images, nginx syntax, synthetic 40-minute GET/POST and API IP-change recovery without restarting web. Latest PR23 605fcab restores exclusions and reduces token permissions; its CI39029295554 succeeded, container rerun39029295547 pending at this update. No registry image push was executed.
