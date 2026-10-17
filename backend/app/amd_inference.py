@@ -47,7 +47,7 @@ def parse_candidates(raw: str, notes: str) -> CandidateResponse:
     return result
 
 
-def extract_candidates(notes: str) -> CandidateResponse:
+def request_structured_content(messages: list[dict], max_tokens: int = 900) -> str:
     key = os.getenv("RADEON_API_KEY", "")
     if not key:
         raise AMDInferenceError("RADEON_API_KEY is not configured")
@@ -57,14 +57,11 @@ def extract_candidates(notes: str) -> CandidateResponse:
         raise AMDInferenceError("Unexpected AMD endpoint; use the documented Token Factory base URL")
     payload = {
         "model": model,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": notes},
-        ],
+        "messages": messages,
         "reasoning_effort": "none",
         "response_format": {"type": "json_object"},
         "temperature": 0,
-        "max_tokens": 900,
+        "max_tokens": max_tokens,
     }
     try:
         with httpx.Client(timeout=90.0) as client:
@@ -78,6 +75,14 @@ def extract_candidates(notes: str) -> CandidateResponse:
             raw = body["choices"][0]["message"]["content"]
             if not isinstance(raw, str) or not raw.strip():
                 raise AMDInferenceError("Model returned empty content")
-            return parse_candidates(raw, notes)
+            return raw
     except (httpx.HTTPError, KeyError, IndexError, ValueError, TypeError) as exc:
         raise AMDInferenceError("AMD inference request failed or returned an unexpected response") from exc
+
+
+def extract_candidates(notes: str) -> CandidateResponse:
+    raw = request_structured_content([
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": notes},
+    ])
+    return parse_candidates(raw, notes)

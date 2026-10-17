@@ -96,3 +96,16 @@ class ObservationReviewEvent(Base):
     reviewed_text: Mapped[str | None] = mapped_column(Text)
     reason: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class FamilyReport(Base):
+    __tablename__ = "family_reports"
+    session_id: Mapped[str] = mapped_column(String(36), ForeignKey("sessions.id"), primary_key=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    evidence_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    evidence_json: Mapped[str] = mapped_column(Text, nullable=False)
+    report_json: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str] = mapped_column(Text, nullable=False)
+    reviewed_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("professionals.id"))
+    reviewed_at: Mapped[str | None] = mapped_column(Text)
+    review_reason: Mapped[str | None] = mapped_column(Text)
