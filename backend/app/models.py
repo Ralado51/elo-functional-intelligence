@@ -80,6 +80,7 @@ class Observation(Base):
     reviewed_text: Mapped[str | None] = mapped_column(Text)
     reviewed_at: Mapped[str | None] = mapped_column(Text)
     reviewed_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("professionals.id"))
+    reviewed_domain: Mapped[str | None] = mapped_column(String(80))
 
 
 class ObservationReviewEvent(Base):
@@ -90,6 +91,8 @@ class ObservationReviewEvent(Base):
     decision: Mapped[str] = mapped_column(String(20), nullable=False)
     previous_status: Mapped[str] = mapped_column(String(24), nullable=False)
     previous_text: Mapped[str] = mapped_column(Text, nullable=False)
+    previous_domain: Mapped[str | None] = mapped_column(String(80))
+    reviewed_domain: Mapped[str | None] = mapped_column(String(80))
     reviewed_text: Mapped[str | None] = mapped_column(Text)
     reason: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
