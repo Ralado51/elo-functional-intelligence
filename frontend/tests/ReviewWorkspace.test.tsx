@@ -27,6 +27,8 @@ async function flush() {
 function setup(audit: (options?: RequestInit) => Promise<Response>, items: RegistryObservation[] = [observation]) {
   const onReviewCompleted = vi.fn();
   const fetchMock = vi.fn((url: string, options?: RequestInit) => {
+    if (url.endsWith('/registry/organizations')) return Promise.resolve(response([]));
+    if (url.endsWith('/functional-documentation')) return Promise.resolve(response({ case_id: 'SYN-CASE', synthetic_patient_id: null }));
     if (url.endsWith('/review-events')) return audit(options);
     if (url.endsWith('/review')) {
       items = items.map(item => ({ ...item, review_status: 'corrected' }));
@@ -143,6 +145,18 @@ describe('audit history request lifecycle', () => {
 });
 
 describe('correction integrity', () => {
+  it('explains an unknown professional without bypassing validation or reporting a successful review', async () => {
+    const { fetchMock, onReviewCompleted } = setup(() => Promise.resolve(response([])));
+    await flush();
+    const normal = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((url, options) => url.endsWith('/review') ? Promise.resolve(new Response(JSON.stringify({ detail: 'Professional not found' }), { status: 404 })) : normal(url, options));
+    fireEvent.change(screen.getByLabelText('Registered synthetic professional ID'), { target: { value: 'invented-id' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm decision' }));
+    await flush();
+    expect(screen.getByRole('alert').textContent).toContain('Register or select a persisted synthetic professional');
+    expect(onReviewCompleted).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Professional decision')).toBeTruthy();
+  });
   it('disables identical and whitespace-only corrections, preserving text-only and domain-only edits', async () => {
     setup(() => Promise.resolve(response([])));
     await flush();
