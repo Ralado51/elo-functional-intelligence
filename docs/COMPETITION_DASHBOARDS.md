@@ -4,7 +4,7 @@ Three read-only dashboards use the application's persisted synthetic records. Op
 
 ## Base and dependencies
 
-Built from actual `main` at `93a6968`. That branch includes reviewed functional domains and opt-in AMD extraction. Functional documentation preview and Sprint 9A are not merged into that main and are not prerequisites for these dashboards. No feature branches were merged or cherry-picked. Existing functional documentation and review components are unchanged.
+Dashboards were built from actual `main` at `93a6968`, which includes reviewed functional domains and opt-in AMD extraction. The critical audit fix branch additionally integrates the existing preview, consolidated draft and Sprint 9A components from reviewed source `be05bf9`; these dependencies are still absent from main. The Session workspace now includes both documentation panels and refreshes them after human decisions. Integration is local to the feature/fix branches; no PR was merged.
 
 No migrations, schema changes, chart dependencies or AMD calls were added. The current application models and existing migrations (including `0004_reviewed_functional_domain`) are required. An older SQLite file lacking reviewed-domain columns cannot support the functional queries; the API returns an actionable 503 rather than fabricating data. Preserve/back up older databases and handle their existing migration path separately. The demo below uses a fresh isolated file and does not modify existing records.
 
@@ -72,6 +72,6 @@ The automated browser flow verifies all dashboards, domain/evidence/audit drill-
 
 ## Limits
 
-This is an unauthenticated, synthetic-only research prototype; dashboard queries are global, not tenant-authorized. Reviewer IDs are synthetic references. Counts do not verify that an identity was authenticated. Provider health is not tested by dashboard requests, and historical inference telemetry is not persisted. Global evidence matching scans the small synthetic dataset; no large-data performance claim or PostgreSQL runtime validation is made. Original review behavior is inherited from main; Sprint 9A remains separate. No clinical report signing, automatic clinical approval, deployment or final competition submission was added.
+This is an unauthenticated, synthetic-only research prototype; dashboard queries are global, not tenant-authorized. Reviewer IDs are synthetic references. Counts do not verify that an identity was authenticated. Provider health is not tested by dashboard requests, and historical inference telemetry is not persisted. Global evidence matching scans the small synthetic dataset; no large-data performance claim or PostgreSQL runtime validation is made. Session-text approval and one-time pending-observation review are independent; an approved session's text and timestamps remain immutable. No clinical report signing, automatic clinical approval, deployment or final competition submission was added. See [API exposure recommendations](DEMO_API_EXPOSURE.md) before planning any audience-facing demonstration.
 
 The complete review description and captured desktop/mobile evidence are in [the PR description](COMPETITION_DASHBOARDS_PR.md).

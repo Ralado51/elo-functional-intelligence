@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run --environment jsdom",
-    "test:browser": "node scripts/dashboard-smoke.cjs"
+    "test:browser": "node scripts/dashboard-smoke.cjs",
+    "test:integration": "node scripts/audit-integration-smoke.cjs"
   },
   "dependencies": {
     "react": "^18.3.1",
