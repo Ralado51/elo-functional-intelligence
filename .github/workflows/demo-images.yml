@@ -27,6 +27,7 @@ jobs:
           push: false
           tags: elo-demo-web:smoke
   publish:
+    if: github.ref == 'refs/heads/main'
     needs: validate
     runs-on: ubuntu-latest
     strategy:
