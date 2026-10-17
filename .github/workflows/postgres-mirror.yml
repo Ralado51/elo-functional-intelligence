@@ -1,0 +1,60 @@
+name: Prepare reviewed PostgreSQL 16 mirror
+on:
+  workflow_dispatch:
+    inputs:
+      source_digest:
+        description: Independently reviewed official docker.io/library/postgres SHA256 (64 lowercase hex, no prefix)
+        required: true
+        type: string
+      platform:
+        description: Reviewed target VPS platform
+        required: true
+        type: choice
+        options: [linux/amd64, linux/arm64]
+permissions:
+  contents: read
+jobs:
+  mirror:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Validate reviewed source and major version before registry login
+        id: source
+        env:
+          DIGEST: ${{ inputs.source_digest }}
+          PLATFORM: ${{ inputs.platform }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [[ "$DIGEST" =~ ^[0-9a-f]{64}$ ]] || exit 1
+          [[ "$PLATFORM" == linux/amd64 || "$PLATFORM" == linux/arm64 ]] || exit 1
+          source="docker.io/library/postgres:16@sha256:$DIGEST"
+          docker pull --platform "$PLATFORM" "$source"
+          version=$(docker run --rm --platform "$PLATFORM" --network none --entrypoint postgres "$source" --version)
+          [[ "$version" =~ ^postgres\ \(PostgreSQL\)\ 16\. ]] || exit 1
+          echo "source=$source" >> "$GITHUB_OUTPUT"
+          echo "destination=ghcr.io/${REPOSITORY,,}-postgres" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Copy reviewed manifest without rebuilding and record destination digest
+        env:
+          SOURCE: ${{ steps.source.outputs.source }}
+          DESTINATION: ${{ steps.source.outputs.destination }}
+          PLATFORM: ${{ inputs.platform }}
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create --tag "$DESTINATION:16" "$SOURCE"
+          digest=$(docker buildx imagetools inspect "$DESTINATION:16" --format '{{json .Manifest}}' | jq -r .digest)
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 1
+          docker pull --platform "$PLATFORM" "$DESTINATION@$digest"
+          version=$(docker run --rm --platform "$PLATFORM" --network none --entrypoint postgres "$DESTINATION@$digest" --version)
+          [[ "$version" =~ ^postgres\ \(PostgreSQL\)\ 16\. ]] || exit 1
+          printf 'Reviewed source: `%s`\n\nVerified platform: `%s`\n\nDestination: `%s@%s`\n\nOther platforms in a copied index have not been runtime verified. No deployment performed.\n' "$SOURCE" "$PLATFORM" "$DESTINATION" "$digest" >> "$GITHUB_STEP_SUMMARY"

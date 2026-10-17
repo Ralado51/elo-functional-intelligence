@@ -1,0 +1,158 @@
+# Portainer Git Repository stack for Docker Standalone / Compose v2.
+# Image contracts and deployment gates: deploy/portainer/README.md.
+# No host ports, builds, Git bind mounts, shared DBs or automatic updates.
+x-backend: &backend
+  image: ghcr.io/${GHCR_NAMESPACE:-ralado51}/elo-functional-intelligence-api@sha256:${API_IMAGE_DIGEST:?Set the verified API SHA256 digest without sha256 prefix}
+  working_dir: /app
+  user: "10001:10001"
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  environment: &backend-environment
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a unique password in Portainer}
+    PYTHONDONTWRITEBYTECODE: "1"
+    PYTHONUNBUFFERED: "1"
+  # Encode arbitrary password characters correctly, fix the target to our own
+  # PostgreSQL service, and exec without logging the DSN or password.
+  entrypoint:
+    - python
+    - -c
+    - |
+      import os, sys
+      from sqlalchemy.engine import URL
+      os.environ["ELO_DATABASE_URL"] = URL.create(
+          "postgresql+psycopg", username="elo_demo",
+          password=os.environ["POSTGRES_PASSWORD"], host="postgres",
+          port=5432, database="elo_demo"
+      ).render_as_string(hide_password=False)
+      os.execvp(sys.argv[1], sys.argv[1:])
+  labels:
+    traefik.enable: "false"
+  logging: &bounded-logs
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  postgres:
+    # GHCR mirror must contain the verified official PostgreSQL 16 image.
+    image: ghcr.io/${GHCR_NAMESPACE:-ralado51}/elo-functional-intelligence-postgres:16@sha256:${POSTGRES16_IMAGE_DIGEST:?Set the verified PostgreSQL 16 mirror SHA256 digest without sha256 prefix}
+    restart: unless-stopped
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    environment:
+      POSTGRES_DB: elo_demo
+      POSTGRES_USER: elo_demo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a unique password in Portainer}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+      - /var/run/postgresql:rw,nosuid,size=16m
+    networks: [database]
+    healthcheck:
+      test: [CMD, pg_isready, -h, "127.0.0.1", -U, elo_demo, -d, elo_demo]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    labels:
+      traefik.enable: "false"
+    logging: *bounded-logs
+
+  migrate:
+    <<: *backend
+    restart: "no"
+    command: [python, -m, alembic, upgrade, head]
+    networks: [database]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    restart: unless-stopped
+    command: [python, -m, uvicorn, "app.main:app", --host, "0.0.0.0", --port, "8000", --root-path, /api, --no-proxy-headers]
+    environment:
+      <<: *backend-environment
+      ELO_INFERENCE_MODE: ${ELO_INFERENCE_MODE:-mock}
+      ELO_SYNTHETIC_ONLY_ACK: ${ELO_SYNTHETIC_ONLY_ACK:-false}
+      RADEON_API_KEY: ${RADEON_API_KEY:-}
+      RADEON_MODEL: ${RADEON_MODEL:-DeepSeek-V4-Flash}
+      RADEON_BASE_URL: https://developer.amd.com.cn/radeon/api/v1
+    networks: [application, database, api_egress]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import os, urllib.request;
+          from sqlalchemy import create_engine, text;
+          from sqlalchemy.engine import URL;
+          url = URL.create('postgresql+psycopg', username='elo_demo', password=os.environ['POSTGRES_PASSWORD'], host='postgres', port=5432, database='elo_demo');
+          engine = create_engine(url);
+          connection = engine.connect();
+          connection.execute(text('SELECT 1'));
+          connection.close();
+          engine.dispose();
+          response = urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5);
+          assert response.status == 200
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    image: ghcr.io/${GHCR_NAMESPACE:-ralado51}/elo-functional-intelligence-frontend@sha256:${FRONTEND_IMAGE_DIGEST:?Set the verified frontend SHA256 digest without sha256 prefix}
+    restart: unless-stopped
+    user: "101:101"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /var/cache/nginx:rw,noexec,nosuid,size=32m
+      - /var/run:rw,noexec,nosuid,size=8m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [traefik, application]
+    depends_on:
+      api:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=portainer_default
+      - traefik.http.routers.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}.rule=Host(`app.eloterapia.com.br`)
+      - traefik.http.routers.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}.entrypoints=websecure
+      - traefik.http.routers.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}.tls=true
+      - traefik.http.routers.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}.tls.certresolver=leresolver
+      - traefik.http.routers.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}.middlewares=${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}-auth@docker
+      - traefik.http.routers.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}.service=${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}-frontend
+      - traefik.http.services.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}-frontend.loadbalancer.server.port=8080
+      - traefik.http.middlewares.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}-auth.basicauth.users=${DEMO_BASIC_AUTH_USERS:?Set bcrypt htpasswd records in Portainer}
+      - traefik.http.middlewares.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}-auth.basicauth.removeheader=true
+    logging: *bounded-logs
+
+networks:
+  traefik:
+    external: true
+    name: portainer_default
+  application:
+    internal: true
+  database:
+    internal: true
+  # Needed for opt-in outbound AMD HTTPS. No API listener is published here.
+  api_egress:
+    driver: bridge
+
+volumes:
+  # Portainer's unique stack/project prefix isolates this from all other stacks.
+  postgres_data:
