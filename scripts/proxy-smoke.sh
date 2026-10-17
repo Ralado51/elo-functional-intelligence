@@ -10,6 +10,7 @@ cleanup() {
   if [ "$result" -ne 0 ]; then
     docker logs "$api" 2>/dev/null || true
     docker logs "$web" 2>/dev/null || true
+    docker inspect --format '{{json .State}}' "$web" 2>/dev/null || true
   fi
   docker rm -f "$web" "$api" >/dev/null 2>&1 || true
   docker network rm "$network" >/dev/null 2>&1 || true
@@ -31,6 +32,17 @@ docker run -d --name "$web" --network "$network" \
   --tmpfs /var/cache/nginx:rw,noexec,nosuid,size=32m \
   --tmpfs /var/run:rw,noexec,nosuid,size=8m \
   -p 127.0.0.1::8080 elo-demo-web:smoke >/dev/null
+# Inspect stopped containers too: docker exec alone loses startup diagnostics.
+for attempt in $(seq 1 10); do
+  if [ "$(docker inspect --format '{{.State.Running}}' "$web")" = true ]; then
+    break
+  fi
+  sleep 1
+done
+docker run --rm --network "$network" --user 101:101 --read-only --cap-drop ALL \
+  --security-opt no-new-privileges --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+  --tmpfs /var/cache/nginx:rw,noexec,nosuid,size=32m \
+  --tmpfs /var/run:rw,noexec,nosuid,size=8m elo-demo-web:smoke -t
 docker exec "$web" nginx -t
 port=$(docker port "$web" 8080/tcp | cut -d: -f2)
 url="http://127.0.0.1:$port"
