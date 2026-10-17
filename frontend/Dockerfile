@@ -9,7 +9,8 @@ RUN npm run build
 
 FROM nginx:1.27-alpine
 # All runtime writes belong to the /tmp tmpfs, including non-root PID/temp paths.
-RUN sed -i 's@/var/run/nginx.pid@/tmp/nginx.pid@' /etc/nginx/nginx.conf
+RUN sed -i -E 's@^pid[[:space:]]+[^;]+;@pid /tmp/nginx.pid;@' /etc/nginx/nginx.conf \
+    && grep -q '^pid /tmp/nginx.pid;' /etc/nginx/nginx.conf
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 USER 101:101
