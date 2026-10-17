@@ -20,7 +20,7 @@ trap cleanup EXIT
 # Explicit addresses ensure API recreation really changes its Docker DNS answer.
 docker network create --subnet 172.30.246.0/24 "$network" >/dev/null
 start_api() {
-  docker run -d --name "$api" --network "$network" --network-alias api \
+  docker run -d --name "$api" --network "$network" --network-alias elo-functional-api \
     --ip "$1" --user 10001:10001 --read-only --cap-drop ALL \
     --security-opt no-new-privileges --tmpfs /tmp:rw,noexec,nosuid,size=64m -e ELO_INFERENCE_MODE=mock -e ELO_DB_PATH=/tmp/smoke.db \
     elo-demo-api:smoke uvicorn app.main:app --host 0.0.0.0 --port 8000 --root-path /api --no-proxy-headers >/dev/null
