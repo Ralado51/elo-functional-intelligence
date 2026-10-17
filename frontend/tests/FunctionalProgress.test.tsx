@@ -115,3 +115,34 @@ it('bounds stalled requests and cancels them on unmount', async () => {
   expect(signal?.aborted).toBe(true);
   view.unmount();
 });
+
+it('links visual markers to exact reviewed evidence and labels the original illustration', async () => {
+  setup(); await flush();
+  const overview = screen.getByRole('region', { name: 'Documented activity overview' });
+  expect(overview.textContent).toContain(account);
+  expect(overview.textContent).toContain('not clinical performance scores');
+  expect(overview.querySelector('a')?.getAttribute('href')).toBe('#functional-record-obs-attention');
+  expect(screen.getByRole('img', { name: /fictional child/ })).toBeTruthy();
+  expect(overview.textContent).toContain('not observed event order');
+  expect(overview.textContent).not.toContain('70%');
+});
+
+it('selects empty sessions from the evidence matrix without illustrative measurement carryover', async () => {
+  setup(); await flush();
+  expect(screen.getByRole('region', { name: 'Session evidence comparison' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Explore recorded session 1' }).getAttribute('aria-pressed')).toBe('true');
+  fireEvent.click(screen.getByRole('button', { name: 'Explore recorded session 2' }));
+  expect(screen.queryByRole('region', { name: 'Documented activity overview' })).toBeNull();
+  expect(screen.queryByText(account)).toBeNull();
+  expect(screen.getByRole('button', { name: 'Explore recorded session 2' }).textContent).toContain('No observations');
+});
+
+it('retains corrected negative wording in the visual marker without extracting positive numbers', async () => {
+  const negative = 'Did not maintain attention for eight minutes; duration was not measured.';
+  setup({ ...data, sessions: [{ ...measured, evidence: [{ ...evidence, review_status: 'corrected', reviewed_text: negative }] }] });
+  await flush();
+  const overview = screen.getByRole('region', { name: 'Documented activity overview' });
+  expect(overview.textContent).toContain(negative);
+  expect(overview.textContent).toContain('Reviewed correction');
+  expect(overview.textContent).not.toContain('8 minutes');
+});

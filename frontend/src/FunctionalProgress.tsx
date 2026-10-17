@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import './functional-progress.css';
+import ActivityIllustration from './ActivityIllustration';
 
 type Evidence = {
   observation_id: string; review_status: string; original_domain: string; domain: string;
@@ -19,6 +20,41 @@ const topics = [
   ['motor', 'Motor coordination'], ['transitions', 'Transitions'],
   ['assistance', 'Assistance & independence'],
 ];
+
+function ParticipationOverview({ session }: { session: Session }) {
+  return <section className="participation-overview" aria-label="Documented activity overview">
+    <header><div><p className="workspace-kicker">ACTIVITY EXPLORER / HUMAN-REVIEWED EVIDENCE</p><h2>Participation, in focus</h2><p>Documented observations, not clinical performance scores.</p></div><span className="evidence-badge">Source-linked · synthetic only</span></header>
+    <div className="activity-stage"><ActivityIllustration/>
+      <div className="activity-markers">{topics.slice(0, 4).map(([key, title], index) => {
+        const records = session.evidence.filter(record => record.topics.includes(key));
+        return <section className={'activity-marker marker-' + key} key={key}>
+          <span className="marker-index">0{index + 1}</span><h3>{title}</h3>
+          {records.length ? records.map(record => <div key={record.observation_id}>
+            <p className="marker-account">{record.reviewed_text}</p>
+            <a href={'#functional-record-' + record.observation_id}>Reviewed {record.review_status === 'corrected' ? 'correction' : 'approval'} ↗</a>
+          </div>) : <p className="marker-missing">Measurement unavailable · no reviewed account</p>}
+        </section>;
+      })}</div>
+    </div>
+    <div className="activity-reading-path" aria-label="Evidence reading sequence"><span>Explore the evidence</span>{topics.slice(0, 4).map(([key, title], index) => <span key={key}><b>0{index + 1}</b> {title}</span>)}</div>
+    <p className="activity-footnote">Reading sequence only, not observed event order. The block activity is illustrative; the accounts describe this selected session. All wording, approximation and assistance remain as reviewed.</p>
+  </section>;
+}
+
+function SessionEvidenceChart({ sessions, selectedId, onSelect }: { sessions: Session[]; selectedId: string; onSelect: (id: string) => void }) {
+  return <section className="panel session-evidence-chart" aria-label="Session evidence comparison">
+    <div className="chart-heading"><div><p className="workspace-kicker">SESSION EXPLORER</p><h2>Where evidence is recorded</h2></div><p>Presence of reviewed accounts by topic, not ability or improvement.</p></div>
+    <div className="evidence-matrix"><div className="matrix-labels"><span>Recorded session</span>{topics.slice(0, 4).map(([key, title]) => <span key={key}>{title}</span>)}<span>Observation records</span></div>
+      <div className="matrix-columns">{sessions.map((session, index) => <button key={session.id} className="matrix-session" aria-pressed={session.id === selectedId} aria-label={'Explore recorded session ' + (index + 1)} onClick={() => onSelect(session.id)}>
+        <strong>{String(index + 1).padStart(2, '0')}</strong>
+        {topics.slice(0, 4).map(([key, title]) => {
+          const present = session.evidence.some(record => record.topics.includes(key));
+          return <span key={key} className={'matrix-cell ' + (present ? 'has-evidence' : '')} aria-label={title + ': ' + (present ? 'reviewed account' : 'no reviewed account')}>{present ? '●' : '—'}</span>;
+        })}<small>{session.recorded_observations ? session.evidence.length ? 'Evidence' : 'No reviewed evidence' : 'No observations'}</small>
+      </button>)}</div>
+    </div><p className="activity-footnote">● Reviewed account available · — No reviewed account for this topic. Numbers identify records in the list below, newest first; timestamps are entry times. No quantitative values are inferred for empty sessions.</p>
+  </section>;
+}
 
 export default function FunctionalProgress({ apiBase, onEvidence }: {
   apiBase: string; onEvidence: (sessionId: string, observationId?: string) => void;
@@ -68,6 +104,8 @@ export default function FunctionalProgress({ apiBase, onEvidence }: {
         <div><strong>{data.sessions.filter(session => session.evidence.length).length}</strong><span>shown sessions with reviewed functional evidence</span><small>Showing {data.sessions.length} of {data.total_sessions} session records (latest {data.limit} maximum).</small></div>
       </section>
       {!data.sessions.length && <section className="panel"><h2>No session records for this case</h2><p>No functional activity or measurements can be reported.</p></section>}
+      {!!selected?.evidence.length && <ParticipationOverview session={selected}/>}
+      {!!data.sessions.length && <SessionEvidenceChart sessions={data.sessions} selectedId={sessionId} onSelect={setSessionId}/>}
       {!!data.sessions.length && <div className="progress-layout">
         <aside className="panel progress-timeline" aria-label="Session records"><h2>Session records</h2><p className="muted">Record timestamps, not a verified longitudinal activity timeline.</p>{data.sessions.map(session => <button key={session.id} aria-pressed={session.id === sessionId} onClick={() => setSessionId(session.id)}>
           <strong>Recorded {new Date(session.created_at).toLocaleString('en-US')}</strong><span>{session.duration_minutes} minutes · session duration</span><small>{session.evidence.length ? 'Reviewed functional evidence available' : session.recorded_observations ? 'No verified reviewed evidence available' : 'No observations recorded'}</small><small>{session.id}</small>
