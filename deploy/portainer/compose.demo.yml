@@ -79,6 +79,8 @@ services:
     command: [python, -m, uvicorn, "app.main:app", --host, "0.0.0.0", --port, "8000", --root-path, /api, --no-proxy-headers]
     environment:
       <<: *backend-environment
+      ELO_FAMILY_REPORTS_ENABLED: ${ELO_FAMILY_REPORTS_ENABLED:-false}
+      ELO_FAMILY_REPORT_OPERATOR_TOKEN: ${ELO_FAMILY_REPORT_OPERATOR_TOKEN:-}
       ELO_INFERENCE_MODE: ${ELO_INFERENCE_MODE:-mock}
       ELO_SYNTHETIC_ONLY_ACK: ${ELO_SYNTHETIC_ONLY_ACK:-false}
       RADEON_API_KEY: ${RADEON_API_KEY:-}

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './functional-progress.css';
+import ActivityIllustration from './ActivityIllustration';
+import { documentedMeasurement } from './documentedMeasurements';
 
 type Evidence = {
   observation_id: string; review_status: string; original_domain: string; domain: string;
@@ -19,6 +21,46 @@ const topics = [
   ['motor', 'Motor coordination'], ['transitions', 'Transitions'],
   ['assistance', 'Assistance & independence'],
 ];
+
+function metricFor(session: Session, topic: string) {
+  const records = session.evidence.filter(record => record.topics.includes(topic));
+  return { record: records[0], metric: records.length === 1 ? documentedMeasurement(topic, records[0].reviewed_text) : null };
+}
+function revealSource(event: React.MouseEvent, id: string) {
+  const record = document.getElementById('functional-record-' + id);
+  const details = record?.closest('details');
+  if (details) details.open = true;
+  if (!record) event.preventDefault();
+}
+function ParticipationOverview({ session }: { session: Session }) {
+  return <section className="participation-overview" aria-label="Documented activity overview">
+    <header><div><p className="workspace-kicker">SELECTED SESSION / ACTIVITY SNAPSHOT</p><h2>Participation, in focus</h2></div><span className="evidence-badge">Human-reviewed · synthetic</span></header>
+    <div className="activity-stage"><ActivityIllustration/>
+      <div className="activity-markers">{topics.slice(0, 4).map(([key, title], index) => {
+        const { record, metric } = metricFor(session, key);
+        const narratives = session.evidence.filter(item => item.topics.includes(key));
+        return <section className={'activity-marker marker-' + key} key={key}>
+          <span className="marker-index">0{index + 1}</span><h3>{title}</h3>
+          {metric ? <><small>{metric.qualifier}</small><strong className="measurement-value">{metric.value}{metric.denominator !== undefined && <span> / {metric.denominator}</span>}</strong><span className="measurement-unit">{metric.label}</span></> : <><strong className="measurement-unavailable">—</strong><span className="measurement-unit">Not structurally measurable</span></>}
+          {!metric && narratives.map(item => <p className="unstructured-account" key={item.observation_id}>{item.reviewed_text}</p>)}
+          {record && <a href={'#functional-record-' + record.observation_id} onClick={event => revealSource(event, record.observation_id)}>Reviewed {record.review_status === 'corrected' ? 'correction' : 'approval'} ↗</a>}
+        </section>;
+      })}</div>
+    </div><p className="activity-footnote">Documented observations, not clinical performance scores. Illustration is conceptual, not patient imagery. Exact wording and assistance in source details below.</p>
+  </section>;
+}
+function AttemptsOverview({ session }: { session: Session }) {
+  const { metric, record } = metricFor(session, 'motor');
+  const fraction = metric?.denominator ? metric.value / metric.denominator : null;
+  return <section className="attempts-overview" aria-label="Documented independent attempts">
+    <h2>Independent attempts</h2><div className="attempts-ring"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="49" fill="none" stroke="#e8efed" strokeWidth="11"/>{fraction !== null && <circle cx="60" cy="60" r="49" fill="none" stroke="#087f80" strokeWidth="11" pathLength="100" strokeDasharray={`${fraction * 100} 100`} transform="rotate(-90 60 60)"/>}</svg><div><strong>{fraction === null ? '—' : metric?.value}<small>{fraction === null ? '' : ' / ' + metric?.denominator}</small></strong><span>{fraction === null ? 'Unavailable' : 'documented'}</span></div></div>
+    <p>{fraction === null ? record ? 'Not structurally measurable; see the original reviewed account.' : 'No reviewed activity evidence; ability unknown.' : metric?.qualifier.includes('physical assistance') ? 'Both hands used. Minimal physical assistance for the remaining attempts.' : 'Independent attempts / recorded attempts. Remaining attempts have no independence classification here.'}</p>
+    {record && <a href={'#functional-record-' + record.observation_id} onClick={event => revealSource(event, record.observation_id)}>Source & human decision ↗</a>}
+  </section>;
+}
+function SessionPicker({ sessions, selectedId, onSelect }: { sessions: Session[]; selectedId: string; onSelect: (id: string) => void }) {
+  return <section className="snapshot-picker" aria-label="Session snapshot selection"><h2>Select a session</h2><p>Separate activity snapshots · no longitudinal comparison</p><div>{sessions.map((session, index) => <button key={session.id} aria-pressed={session.id === selectedId} aria-label={'Explore recorded session ' + (index + 1)} onClick={() => onSelect(session.id)}><strong>Session {index + 1}</strong><span>{new Date(session.created_at).toLocaleString('en-US')}</span><small>{!session.recorded_observations ? 'No observations · ability unknown' : session.evidence.length ? 'Reviewed narrative available' : 'No verified reviewed narrative'}</small></button>)}</div></section>;
+}
 
 export default function FunctionalProgress({ apiBase, onEvidence }: {
   apiBase: string; onEvidence: (sessionId: string, observationId?: string) => void;
@@ -54,7 +96,7 @@ export default function FunctionalProgress({ apiBase, onEvidence }: {
   const selected = data?.sessions.find(session => session.id === sessionId);
 
   return <div className="functional-progress">
-    <p className="notice"><strong>One-session evidence, not a progress score.</strong> This view describes recorded participation. It does not measure improvement, compare developmental norms, or infer diagnoses. Staff review throughput remains in Operations.</p>
+    <p className="notice"><strong>One-session evidence, not a progress score.</strong> Synthetic records · no inferred improvement or diagnosis.</p>
     <label htmlFor="progress-case">Synthetic case</label>
     <select id="progress-case" value={caseId} onChange={event => { setCaseId(event.target.value); setSessionId(''); setData(null); }}>
       {!cases.length && <option value="">No cases available</option>}
@@ -64,10 +106,12 @@ export default function FunctionalProgress({ apiBase, onEvidence }: {
     {error && <div role="alert" className="error"><p>Could not load functional evidence. {error}</p><button onClick={() => setRevision(value => value + 1)}>Retry functional evidence</button></div>}
     {data && !data.cases.length && <section className="panel"><h2>No synthetic cases recorded</h2><p>This read-only dashboard does not create records.</p></section>}
     {data?.case && <>
-      <section className="panel progress-summary"><div><p className="workspace-kicker">SYNTHETIC PARTICIPATION EVIDENCE</p><h2>Case {data.case.id}</h2><p className="muted">Synthetic patient reference: {data.case.patient_id || 'Not linked; case-level records only'}</p></div>
-        <div><strong>{data.sessions.filter(session => session.evidence.length).length}</strong><span>shown sessions with reviewed functional evidence</span><small>Showing {data.sessions.length} of {data.total_sessions} session records (latest {data.limit} maximum).</small></div>
-      </section>
+      <section className="progress-summary"><div><h2>Case {data.case.id}</h2><span>{data.sessions.length} of {data.total_sessions} session records · latest {data.limit} maximum</span></div><span>{selected ? selected.duration_minutes + '-minute selected session' : 'No session selected'}</span></section>
       {!data.sessions.length && <section className="panel"><h2>No session records for this case</h2><p>No functional activity or measurements can be reported.</p></section>}
+      {!!data.sessions.length && <div className="analytics-strip">{selected && <AttemptsOverview session={selected}/>}<SessionPicker sessions={data.sessions} selectedId={sessionId} onSelect={setSessionId}/></div>}
+      {!!selected?.evidence.length && <ParticipationOverview session={selected}/>}
+      <details className="evidence-details" open={!selected?.evidence.length}><summary>Source observations & human decisions <span>Exact reviewed text · excerpts · reviewer & audit references</span></summary>
+      <p className="muted">Synthetic patient reference: {data.case.patient_id || 'Not linked; case-level records only'}</p>
       {!!data.sessions.length && <div className="progress-layout">
         <aside className="panel progress-timeline" aria-label="Session records"><h2>Session records</h2><p className="muted">Record timestamps, not a verified longitudinal activity timeline.</p>{data.sessions.map(session => <button key={session.id} aria-pressed={session.id === sessionId} onClick={() => setSessionId(session.id)}>
           <strong>Recorded {new Date(session.created_at).toLocaleString('en-US')}</strong><span>{session.duration_minutes} minutes · session duration</span><small>{session.evidence.length ? 'Reviewed functional evidence available' : session.recorded_observations ? 'No verified reviewed evidence available' : 'No observations recorded'}</small><small>{session.id}</small>
@@ -91,6 +135,7 @@ export default function FunctionalProgress({ apiBase, onEvidence }: {
           </>}
         </div>}
       </div>}
+      </details>
     </>}
     {data && <div className="snapshot"><span>Read-only synthetic snapshot: {new Date(data.generated_at).toLocaleString('en-US')}</span><button className="secondary" onClick={() => setRevision(value => value + 1)}>Refresh functional evidence</button></div>}
   </div>;

@@ -12,7 +12,7 @@ ENV = {**os.environ, 'GHCR_NAMESPACE': 'synthetic-validation', 'API_IMAGE_DIGEST
        'FRONTEND_IMAGE_DIGEST': '1' * 64, 'POSTGRES16_IMAGE_DIGEST': '2' * 64,
        'POSTGRES_PASSWORD': 'synthetic:@/$# password', 'DEMO_BASIC_AUTH_USERS': 'synthetic:$2y$test-only',
        'TRAEFIK_ROUTE_PREFIX': 'elo-static-validation', 'ELO_INFERENCE_MODE': 'mock',
-       'ELO_SYNTHETIC_ONLY_ACK': 'false', 'RADEON_API_KEY': ''}
+       'ELO_SYNTHETIC_ONLY_ACK': 'false', 'RADEON_API_KEY': '', 'ELO_FAMILY_REPORTS_ENABLED': 'false', 'ELO_FAMILY_REPORT_OPERATOR_TOKEN': ''}
 
 def render(env):
     return subprocess.run(COMMAND + ['config', '--format', 'json'], env=env, capture_output=True, text=True)
@@ -43,6 +43,16 @@ assert services['api']['depends_on']['migrate']['condition'] == 'service_complet
 assert services['frontend']['depends_on']['api']['condition'] == 'service_healthy'
 assert services['api']['environment']['ELO_INFERENCE_MODE'] == 'mock'
 assert services['api']['environment']['ELO_SYNTHETIC_ONLY_ACK'] == 'false'
+# Explicit defaults must also hold when optional family variables are unset.
+default_env = {key: value for key, value in ENV.items() if key not in ('ELO_FAMILY_REPORTS_ENABLED', 'ELO_FAMILY_REPORT_OPERATOR_TOKEN')}
+default_model = json.loads(render(default_env).stdout)
+assert default_model['services']['api']['environment']['ELO_FAMILY_REPORTS_ENABLED'] == 'false'
+assert default_model['services']['api']['environment']['ELO_FAMILY_REPORT_OPERATOR_TOKEN'] == ''
+opt_in = json.loads(render({**ENV, 'ELO_FAMILY_REPORTS_ENABLED':'true', 'ELO_FAMILY_REPORT_OPERATOR_TOKEN':'synthetic-validation-token-at-least-32-characters'}).stdout)
+assert opt_in['services']['api']['environment']['ELO_FAMILY_REPORTS_ENABLED'] == 'true'
+assert opt_in['services']['api']['environment']['ELO_FAMILY_REPORT_OPERATOR_TOKEN'] == 'synthetic-validation-token-at-least-32-characters'
+for name in ('frontend', 'postgres', 'migrate'):
+    assert not {'RADEON_API_KEY','ELO_FAMILY_REPORT_OPERATOR_TOKEN','ELO_FAMILY_REPORTS_ENABLED'} & set(opt_in['services'][name].get('environment', {}))
 labels = services['frontend']['labels']
 prefix = 'traefik.http.routers.elo-static-validation'
 assert labels[prefix + '.rule'] == 'Host(`app.eloterapia.com.br`)'

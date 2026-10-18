@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-Implemented on a separate main-based feature branch, independent of PR #34. **No live AMD inference, production change, image publication, deployment or hackathon submission was performed.** Tests and screenshots use mocked provider responses. Live execution requires separate explicit user authorization.
+Included with the pinned PR #34 visual snapshot and PR #35 documentation in this isolated combined release candidate. **No live AMD inference, production change, image publication, deployment or hackathon submission was performed.** Tests and screenshots use mocked provider responses. Live execution requires separate explicit user authorization.
 
 The Session Workspace now offers **Generate Family Report**, a printable draft with a descriptive evidence map, factual participation/strength/support accounts, optional activity proposals, source/audit links and explicit therapist approval/rejection. Functional Progress and existing review/documentation dashboards are unchanged.
 
@@ -80,6 +80,6 @@ These are mocked local screenshots, not live AMD output or production observatio
 
 ## Deployment and rollback limits
 
-This PR does not enable the feature in the deployed stack. Existing Portainer Compose deliberately has no family-report operator secret/enablement wiring; any production configuration, migration run, image publication or deployment needs separate review/authorization. Keep audience writes blocked/private and preserve HTTPS/BasicAuth; the operator token adds a feature gate, not clinical identity verification.
+This PR does not enable the feature in the deployed stack. RC Portainer Compose now passes family-report flags and the operator secret to the API only, disabled by default; any production configuration, migration run, image publication or deployment needs separate review/authorization. Keep audience writes blocked/private and preserve HTTPS/BasicAuth; the operator token adds a feature gate, not clinical identity verification.
 
 For an authorized rollout, apply additive migration 0005 first and release compatible API/frontend together with the feature initially disabled. For rollback, disable the feature and restore previous approved API/frontend digests/configuration; keep the added table/data and existing PostgreSQL volume. Previous code can ignore the new table. Do not run destructive downgrade, drop reports, reset/re-extract observations, overwrite shared databases or change unrelated stacks. Preserve consumed attempts and approval/audit records. Actual approved digests must come from secure operator release records.
