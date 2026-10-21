@@ -59,9 +59,11 @@ assert labels[prefix + '.rule'] == 'Host(`app.eloterapia.com.br`)'
 assert labels[prefix + '.tls'] == 'true'
 assert labels[prefix + '.entrypoints'] == 'websecure'
 # Compose re-escapes dollar signs in config output for safe re-parsing.
-assert not any('.basicauth.' in key for key in labels)
-assert prefix + '.middlewares' not in labels
+assert labels[prefix + '.middlewares'] == 'elo-static-validation-auth@docker'
+assert labels['traefik.http.middlewares.elo-static-validation-auth.basicauth.users']
+assert labels['traefik.http.middlewares.elo-static-validation-auth.basicauth.removeheader'] == 'true'
+assert render({**ENV, 'DEMO_BASIC_AUTH_USERS': ''}).returncode != 0, 'Missing BasicAuth credentials accepted'
 assert labels['traefik.http.services.elo-static-validation-frontend.loadbalancer.server.port'] == '8080'
 for key in ('API_IMAGE_DIGEST', 'FRONTEND_IMAGE_DIGEST', 'POSTGRES16_IMAGE_DIGEST', 'POSTGRES_PASSWORD'):
     assert render({**ENV, key: ''}).returncode != 0, f'Missing required {key} accepted'
-print('PASS: synthetic Compose normalization, image/TLS/public-demo/isolation/migration contracts and missing-input rejection')
+print('PASS: synthetic Compose normalization, image/TLS/BasicAuth/isolation/migration contracts and missing-input rejection')
