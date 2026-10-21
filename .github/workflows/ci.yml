@@ -1,9 +1,9 @@
 name: CI
 on:
   push:
-    branches: [main, feat/sprint-1-foundation]
+    branches: [main]
   pull_request:
-    branches: [main, feat/demo-ghcr-pipeline]
+    branches: [main]
 jobs:
   backend:
     runs-on: ubuntu-latest

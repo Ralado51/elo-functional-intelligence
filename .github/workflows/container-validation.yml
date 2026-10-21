@@ -1,7 +1,7 @@
 name: Container validation
 on:
   pull_request:
-    branches: [main, feat/demo-ghcr-pipeline, feat/portainer-gitops-demo, fix/pr18-container-validation]
+    branches: [main]
 permissions:
   contents: read
 jobs:
