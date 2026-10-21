@@ -141,8 +141,11 @@ services:
       - traefik.http.routers.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}.entrypoints=websecure
       - traefik.http.routers.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}.tls=true
       - traefik.http.routers.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}.tls.certresolver=leresolver
+      - traefik.http.routers.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}.middlewares=${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}-auth@docker
       - traefik.http.routers.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}.service=${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}-frontend
       - traefik.http.services.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}-frontend.loadbalancer.server.port=8080
+      - traefik.http.middlewares.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}-auth.basicauth.users=${DEMO_BASIC_AUTH_USERS:?Set bcrypt htpasswd records in Portainer}
+      - traefik.http.middlewares.${TRAEFIK_ROUTE_PREFIX:-elo-functional-demo}-auth.basicauth.removeheader=true
     logging: *bounded-logs
 
 networks:
